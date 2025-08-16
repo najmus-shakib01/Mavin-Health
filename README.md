@@ -1,7 +1,7 @@
 # Mavin-Health
 <ul>
-  <ol>Only identifies diseases/medical conditions (no other queries) </ol>
-  <ol>Responds only in English (American) or Arabic (Saudi dialect) </ol>
-  <ol>Rejects any queries in other languages</ol>
-  <ol>Follows all your previous medical guidelines but with these language restrictions</ol>
+  <li>Only identifies diseases/medical conditions (no other queries) </li>
+  <li>Responds only in English (American) or Arabic (Saudi dialect) </li>
+  <li>Rejects any queries in other languages</li>
+  <li>Follows all your previous medical guidelines but with these language restrictions</li>
 </ul>

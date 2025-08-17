@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
 import { marked } from 'marked';
 import { useEffect, useRef, useState } from 'react';
-import { default as Error, default as Loader } from '../../components/Error';
+import Error from '../../components/Error';
+import Loader from '../../components/Loader';
 import { apiKey, baseUrl } from '../../constants/env.constants';
 import { cornerCases } from '../../constants/env.cornercase';
 import PageTitle from "../../utils/PageTitle";
@@ -10,8 +10,6 @@ import PageTitle from "../../utils/PageTitle";
 const MedicalAssistant = () => {
   const [userInput, setUserInput] = useState('');
   const [response, setResponse] = useState('');
-  const [, setIsEnglish] = useState(false);
-  const [, setIsArabic] = useState(false);
   const textareaRef = useRef(null);
   const responseDivRef = useRef(null);
 
@@ -27,79 +25,86 @@ const MedicalAssistant = () => {
   }, [userInput]);
 
   const detectLanguage = (text) => {
-    const english = /[a-zA-Z]/.test(text);
-    const arabic = /[\u0600-\u06FF]/.test(text);
-    setIsEnglish(english);
-    setIsArabic(arabic);
-    return english || arabic;
+    return /[a-zA-Z]/.test(text) || /[\u0600-\u06FF]/.test(text);
   };
 
   const sendMessageMutation = useMutation({
     mutationFn: async (inputText) => {
-      setResponse('');
+      setResponse('🔄 Analyzing Symptoms...');
       
-      const response = await axios.post(
+      const response = await fetch(
         `${baseUrl}/chat/completions`,
         {
-          model: "deepseek/deepseek-r1:free",
-          messages: [
-            {
-              role: "system",
-              content: cornerCases
-            },
-            {
-              role: "user",
-              content: inputText
-            }
-          ],
-          temperature: 0,
-          stream: true,
-        },
-        {
+          method: 'POST',
           headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
           },
-          responseType: 'stream'
+          body: JSON.stringify({
+            model: "deepseek/deepseek-r1:free",
+            messages: [
+              {
+                role: "system",
+                content: cornerCases
+              },
+              {
+                role: "user",
+                content: inputText
+              }
+            ],
+            temperature: 0,
+            stream: true,
+          })
         }
       );
 
-      return response.data;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return response.body;
     },
-    onSuccess: (data) => {
-      const reader = data.getReader();
+    onSuccess: (readableStream) => {
+      const reader = readableStream.getReader();
       const decoder = new TextDecoder();
       let fullResponse = '';
 
-      const readChunk = async () => {
-        const { done, value } = await reader.read();
-        if (done) return;
+      const processStream = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
 
-        for (const line of lines) {
-          if (line.startsWith("data:") && line !== "data: [DONE]") {
-            try {
-              const data = JSON.parse(line.substring(5));
-              const token = data.choices?.[0]?.delta?.content;
+            for (const line of lines) {
+              if (line.startsWith('data:') && line !== 'data: [DONE]') {
+                try {
+                  const data = JSON.parse(line.substring(5));
+                  const token = data.choices?.[0]?.delta?.content;
 
-              if (token) {
-                fullResponse += token;
-                setResponse(marked.parse(fullResponse));
-                if (responseDivRef.current) {
-                  responseDivRef.current.scrollTop = responseDivRef.current.scrollHeight;
+                  if (token) {
+                    fullResponse += token;
+                    setResponse(marked.parse(fullResponse));
+                    if (responseDivRef.current) {
+                      responseDivRef.current.scrollTop = responseDivRef.current.scrollHeight;
+                    }
+                  }
+                } catch (e) {
+                  console.error('Error parsing JSON:', e);
                 }
               }
-            } catch (e) {
-              console.error("Error parsing JSON:", e);
             }
           }
+        } catch (error) {
+          setResponse(`<span style="color: red">Stream Error: ${error.message}</span>`);
+        } finally {
+          reader.releaseLock();
         }
-        readChunk();
       };
 
-      readChunk();
+      processStream();
     },
     onError: (error) => {
       setResponse(`<span style="color: red">Error: ${error.message}</span>`);
@@ -133,7 +138,7 @@ const MedicalAssistant = () => {
 
   return (
     <div className="min-h-full flex items-center justify-center py-12 px-4">
-    <PageTitle title="Medical Assistant" />
+      <PageTitle title="Medical Assistant" />
       <div className="w-full max-w-xl">
         <div className="bg-white shadow-xl rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-4">

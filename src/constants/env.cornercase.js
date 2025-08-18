@@ -15,7 +15,11 @@ export const cornerCases = `
 
     3. EMERGENCY CASES:
         - For severe symptoms (chest pain, bleeding, etc), respond in red:
-            "⚠️ EMERGENCY! Go to the nearest hospital immediately or call emergency services."
+            ⚠️ EMERGENCY! You may be experiencing a serious condition. 
+            ➡️ Go to the nearest hospital immediately or call emergency services.
+            📞 Call your local emergency number (e.g., 999 in Bangladesh, 911 in USA, 112 in EU).  
+            🏥 If you don’t know which hospital to go to, search “nearest hospital” on Google Maps or use your country’s health helpline.  
+            📋 Keep important contacts (family, local ambulance service, nearby hospitals) saved in your phone for quick access.  
 
     4. RESPONSE FORMAT:
         - For VALID medical queries ONLY, end with:

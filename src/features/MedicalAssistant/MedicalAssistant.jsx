@@ -1,21 +1,27 @@
-import { useMutation } from '@tanstack/react-query';
-import { marked } from 'marked';
-import { useEffect, useRef, useState } from 'react';
-import Error from '../../components/Error';
-import Loader from '../../components/Loader';
-import { apiKey, baseUrl } from '../../constants/env.constants';
-import { cornerCases } from '../../constants/env.cornercase';
+// MedicalAssistant.jsx ফাইল এখন শুধু UI এর কাজ করবে।
+// সব API কল, লজিক useMedicalAssistant.jsx ফাইল থেকে আসবে।
+import { useEffect, useRef } from "react";
+import Error from "../../components/Error";
+import Loader from "../../components/Loader";
 import PageTitle from "../../utils/PageTitle";
+import { useMedicalAssistant } from "./useMedicalAssistant.jsx";
 
 const MedicalAssistant = () => {
-  const [userInput, setUserInput] = useState('');
-  const [response, setResponse] = useState('');
-  const textareaRef = useRef(null);
-  const responseDivRef = useRef(null);
+  const {
+    userInput,
+    setUserInput,
+    response,
+    responseDivRef,
+    sendMessageMutation,
+    handleSendMessage,
+  } = useMedicalAssistant();
 
+  const textareaRef = useRef(null);
+
+  // অটো-রিসাইজ টেক্সটএরিয়া
   const autoResizeTextarea = () => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   };
@@ -24,113 +30,9 @@ const MedicalAssistant = () => {
     autoResizeTextarea();
   }, [userInput]);
 
-  const detectLanguage = (text) => {
-    return /[a-zA-Z]/.test(text) || /[\u0600-\u06FF]/.test(text);
-  };
-
-  const sendMessageMutation = useMutation({
-    mutationFn: async (inputText) => {
-      setResponse('🔄 Analyzing Symptoms...');
-      
-      const response = await fetch(
-        `${baseUrl}/chat/completions`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: "deepseek/deepseek-r1:free",
-            messages: [
-              {
-                role: "system",
-                content: cornerCases
-              },
-              {
-                role: "user",
-                content: inputText
-              }
-            ],
-            temperature: 0,
-            stream: true,
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return response.body;
-    },
-    onSuccess: (readableStream) => {
-      const reader = readableStream.getReader();
-      const decoder = new TextDecoder();
-      let fullResponse = '';
-
-      const processStream = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-              if (line.startsWith('data:') && line !== 'data: [DONE]') {
-                try {
-                  const data = JSON.parse(line.substring(5));
-                  const token = data.choices?.[0]?.delta?.content;
-
-                  if (token) {
-                    fullResponse += token;
-                    setResponse(marked.parse(fullResponse));
-                    if (responseDivRef.current) {
-                      responseDivRef.current.scrollTop = responseDivRef.current.scrollHeight;
-                    }
-                  }
-                } catch (e) {
-                  console.error('Error parsing JSON:', e);
-                }
-              }
-            }
-          }
-        } catch (error) {
-          setResponse(`<span style="color: red">Stream Error: ${error.message}</span>`);
-        } finally {
-          reader.releaseLock();
-        }
-      };
-
-      processStream();
-    },
-    onError: (error) => {
-      setResponse(`<span style="color: red">Error: ${error.message}</span>`);
-    }
-  });
-
-  const handleSendMessage = () => {
-    if (!userInput.trim()) {
-      setResponse("Please enter a message.");
-      return;
-    }
-
-    if (!detectLanguage(userInput)) {
-      setResponse(
-        `<span style="color:red">
-          I only accept questions in English or Arabic. Please ask in English or Arabic.
-        </span>`
-      );
-      return;
-    }
-
-    sendMessageMutation.mutate(userInput);
-  };
-
+  // এন্টার চাপলে সেন্ড
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -140,14 +42,18 @@ const MedicalAssistant = () => {
     <div className="min-h-full flex items-center justify-center py-12 px-4">
       <PageTitle title="Medical Assistant" />
       <div className="w-full max-w-xl">
-        <div className="bg-white shadow-xl rounded-2xl p-6">
+        <div className="bg-white shadow-xl rounded-xl p-6">
           <div className="flex items-center gap-3 mb-4">
             <div>
-              <h1 className="text-xl font-bold text-gray-800">Medical Assistant</h1>
-              <p className="text-sm text-gray-500">Ask any health-related questions</p>
+              <h1 className="text-xl font-bold text-gray-900">
+                Medical Assistant
+              </h1>
+              <p className="text-sm text-gray-500">
+                Ask any health-related questions
+              </p>
             </div>
           </div>
-
+          {/* Response Box */}
           <div
             ref={responseDivRef}
             id="response"
@@ -155,16 +61,14 @@ const MedicalAssistant = () => {
           >
             {sendMessageMutation.isPending && <Loader />}
             {sendMessageMutation.isError && (
-              <Error 
-                message={sendMessageMutation.error.message} 
+              <Error
+                message={sendMessageMutation.error.message}
                 onRetry={handleSendMessage}
               />
             )}
-            {response && (
-              <div dangerouslySetInnerHTML={{ __html: response }} />
-            )}
+            {response && <div dangerouslySetInnerHTML={{ __html: response }} />}
           </div>
-
+          {/* Input Box */}
           <div className="mt-4 flex gap-2 items-end">
             <div className="flex-1 relative">
               <textarea
@@ -174,12 +78,12 @@ const MedicalAssistant = () => {
                 rows={1}
                 autoFocus
                 className="w-full text-base border border-gray-300 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none leading-relaxed max-h-40 overflow-y-auto"
-                aria-label="Type your health question"
+                aria-label="Type your health question here..."
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
                 onInput={autoResizeTextarea}
                 onKeyDown={handleKeyDown}
-              />
+              ></textarea>
             </div>
             <button
               onClick={handleSendMessage}
@@ -187,12 +91,12 @@ const MedicalAssistant = () => {
               disabled={sendMessageMutation.isPending}
               className="px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed h-[46px]"
             >
-              {sendMessageMutation.isPending ? 'Sending...' : 'Ask!'}
+              {sendMessageMutation.isPending ? "Sending..." : "Ask!"}
             </button>
           </div>
           <p className="mt-2 text-xs text-gray-500 text-center">
-            This assistant only responds to medical questions. For
-            emergencies, contact a doctor immediately.
+            This assistant only responds to medical questions. For emergencies,
+            contact a doctor immediately.
           </p>
         </div>
       </div>

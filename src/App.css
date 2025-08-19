@@ -1,0 +1,15 @@
+.user-question {
+    background-color: #f0f9ff;
+    border-left: 4px solid #3b82f6;
+    padding: 12px;
+    margin-bottom: 16px;
+    border-radius: 0 8px 8px 0;
+}
+
+.assistant-response {
+    background-color: #f8fafc;
+    padding: 12px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}

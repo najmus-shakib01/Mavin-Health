@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-export const useMedicalValidation = () => {
+const useMedicalValidation = () => {
     // মেডিকেল সম্পর্কিত প্রশ্ন কিনা চেক করা
     const isMedicalQuestion = useCallback((text) => {
         const medicalKeywords = [
@@ -16,3 +16,5 @@ export const useMedicalValidation = () => {
 
     return { isMedicalQuestion };
 };
+
+export default useMedicalValidation;

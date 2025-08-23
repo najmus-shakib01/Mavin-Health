@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-export const useHistoryManagement = () => {
+const useHistoryManagement = () => {
     const [medicalHistory, setMedicalHistory] = useState([]);
 
     // হিস্টোরি ক্লিয়ার করা
@@ -32,11 +32,7 @@ export const useHistoryManagement = () => {
         }
     }, []);
 
-    return {
-        medicalHistory,
-        setMedicalHistory,
-        clearHistory,
-        loadHistoryFromStorage,
-        saveHistoryToStorage
-    };
+    return { medicalHistory, setMedicalHistory, clearHistory, loadHistoryFromStorage, saveHistoryToStorage };
 };
+
+export default useHistoryManagement;

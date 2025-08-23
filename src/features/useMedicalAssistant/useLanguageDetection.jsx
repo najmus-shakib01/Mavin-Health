@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-export const useLanguageDetection = () => {
+const useLanguageDetection = () => {
     // ভাষা ডিটেক্ট করা (শুধু ইংরেজি/আরবি)
     const detectLanguage = useCallback((text) => {
         const hasEnglish = /[a-zA-Z]/.test(text);
@@ -10,3 +10,5 @@ export const useLanguageDetection = () => {
 
     return { detectLanguage };
 };
+
+export default useLanguageDetection;

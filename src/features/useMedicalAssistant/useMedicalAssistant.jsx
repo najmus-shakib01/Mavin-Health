@@ -1,11 +1,11 @@
 import { useCallback, useRef, useState } from "react";
-import { useApiCommunication } from "./useApiCommunication";
-import { useEmergencyDetection } from "./useEmergencyDetection";
-import { useHistoryManagement } from "./useHistoryManagement";
-import { useLanguageDetection } from "./useLanguageDetection";
-import { useMedicalValidation } from "./useMedicalValidation";
+import useApiCommunication from "./useApiCommunication";
+import useEmergencyDetection from "./useEmergencyDetection";
+import useHistoryManagement from "./useHistoryManagement";
+import useLanguageDetection from "./useLanguageDetection";
+import useMedicalValidation from "./useMedicalValidation";
 
-export const useMedicalAssistant = () => {
+const useMedicalAssistant = () => {
     const [userInput, setUserInput] = useState("");
     const [response, setResponse] = useState("");
     const responseDivRef = useRef(null);
@@ -14,20 +14,11 @@ export const useMedicalAssistant = () => {
     const { detectLanguage } = useLanguageDetection();
     const { detectEmergency } = useEmergencyDetection();
     const { isMedicalQuestion } = useMedicalValidation();
-    const {
-        medicalHistory,
-        setMedicalHistory,
-        clearHistory,
-        loadHistoryFromStorage,
-        saveHistoryToStorage
+
+    const { medicalHistory, setMedicalHistory, clearHistory, loadHistoryFromStorage, saveHistoryToStorage
     } = useHistoryManagement();
 
-    const { sendMessageMutation } = useApiCommunication(
-        setResponse,
-        setMedicalHistory,
-        saveHistoryToStorage,
-        responseDivRef
-    );
+    const { sendMessageMutation } = useApiCommunication(setResponse, setMedicalHistory, saveHistoryToStorage, responseDivRef);
 
     // মেসেজ পাঠানো - সংশোধিত
     const handleSendMessage = useCallback(() => {
@@ -42,24 +33,19 @@ export const useMedicalAssistant = () => {
         }
 
         if (detectEmergency(userInput)) {
-            const emergencyResponse = `<span style="color:red; font-weight:bold;">
-                ⚠️ EMERGENCY ALERT! You may be experiencing a serious medical condition. 
-                ➡️ Please go to the nearest hospital immediately or call emergency services.
-                📞 Call your local emergency number (e.g., 999 in Bangladesh, 911 in USA, 112 in EU).  
-                🏥 Use Google Maps to search for "nearest hospital" if needed.
-                </span>`;
+            const emergencyResponse = `
+                <span style="color:red; font-weight:bold;">
+                    ⚠️ EMERGENCY ALERT! You may be experiencing a serious medical condition. 
+                    ➡️ Please go to the nearest hospital immediately or call emergency services.
+                    📞 Call your local emergency number (e.g., 999 in Bangladesh, 911 in USA, 112 in EU).  
+                    🏥 Use Google Maps to search for "nearest hospital" if needed.
+                </span>
+            `;
 
             setResponse(emergencyResponse);
 
             // নতুন অবজেক্ট রেফারেন্স তৈরি করে এবং হিস্টোরি আপডেট করে
-            const newHistoryItem = {
-                query: userInput,
-                response: emergencyResponse,
-                language: /[\u0600-\u06FF]/.test(userInput) ? 'Arabic' : 'English',
-                time: new Date().toLocaleTimeString(),
-                id: Date.now(),
-                emergency: true
-            };
+            const newHistoryItem = { query: userInput, response: emergencyResponse, language: /[\u0600-\u06FF]/.test(userInput) ? 'Arabic' : 'English', time: new Date().toLocaleTimeString(), id: Date.now(), emergency: true };
 
             setMedicalHistory(prev => {
                 const updatedHistory = [...prev, newHistoryItem];
@@ -88,14 +74,7 @@ export const useMedicalAssistant = () => {
         }
     });
 
-    return {
-        userInput,
-        setUserInput,
-        response,
-        responseDivRef,
-        sendMessageMutation,
-        handleSendMessage,
-        medicalHistory,
-        clearHistory,
-    };
+    return { userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage, medicalHistory, clearHistory };
 };
+
+export default useMedicalAssistant;

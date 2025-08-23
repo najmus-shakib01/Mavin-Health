@@ -3,10 +3,10 @@ import { marked } from "marked";
 import { apiKey, baseUrl } from "../../constants/env.constants";
 import { cornerCases } from "../../constants/env.cornercase";
 
-export const useApiCommunication = (setResponse, setMedicalHistory, saveHistoryToStorage, responseDivRef) => {
+const useApiCommunication = (setResponse, setMedicalHistory, saveHistoryToStorage, responseDivRef) => {
     const sendMessageMutation = useMutation({
         mutationFn: async (inputText) => {
-            setResponse("🔄 Analyzing symptoms with medical database...");
+            setResponse("🔄 Analyzing Symptoms With Medical Database...");
 
             // Detect language for response formatting
             const isArabic = /[\u0600-\u06FF]/.test(inputText);
@@ -83,13 +83,7 @@ export const useApiCommunication = (setResponse, setMedicalHistory, saveHistoryT
                     setResponse(parsedResponse);
 
                     // নতুন হিস্টোরি আইটেম তৈরি
-                    const newHistoryItem = {
-                        query,
-                        response: parsedResponse,
-                        language,
-                        time: new Date().toLocaleTimeString(),
-                        id: Date.now() // ইউনিক আইডি
-                    };
+                    const newHistoryItem = { query, response: parsedResponse, language, time: new Date().toLocaleTimeString(), id: Date.now()};
 
                     // হিস্টোরি আপডেট 
                     setMedicalHistory(prevHistory => {
@@ -109,9 +103,11 @@ export const useApiCommunication = (setResponse, setMedicalHistory, saveHistoryT
             processStream();
         },
         onError: (error) => {
-            setResponse(`<span style="color: red">Error: ${error.message}</span>`);
+            setResponse(`<span style="color : red">Error : ${error.message}</span>`);
         },
     });
 
     return { sendMessageMutation };
 };
+
+export default useApiCommunication;

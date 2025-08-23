@@ -32,7 +32,7 @@ const MedicalAssistant = () => {
       event.preventDefault();
       handleSendMessage();
     }
-  }
+  };
 
   return (
     <div className="min-h-full flex items-center justify-center py-8 px-4">

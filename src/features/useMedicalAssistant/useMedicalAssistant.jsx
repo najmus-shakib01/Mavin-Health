@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useApiCommunication from "./useApiCommunication";
 import useEmergencyDetection from "./useEmergencyDetection";
 import useHistoryManagement from "./useHistoryManagement";
@@ -19,6 +19,14 @@ const useMedicalAssistant = () => {
     } = useHistoryManagement();
 
     const { sendMessageMutation } = useApiCommunication(setResponse, setMedicalHistory, saveHistoryToStorage, responseDivRef);
+
+    // কম্পোনেন্ট মাউন্ট হলে হিস্টোরি লোড
+    useEffect(() => {
+        const savedHistory = loadHistoryFromStorage();
+        if (savedHistory.length > 0) {
+            setMedicalHistory(savedHistory);
+        }
+    }, [loadHistoryFromStorage, setMedicalHistory]);
 
     // মেসেজ পাঠানো - সংশোধিত
     const handleSendMessage = useCallback(() => {
@@ -53,26 +61,30 @@ const useMedicalAssistant = () => {
                 return updatedHistory;
             });
 
+            // ইমার্জেন্সি ক্ষেত্রেও ইনপুট ক্লিয়ার করুন
+            setUserInput("");
+
             return;
         }
 
         if (!isMedicalQuestion(userInput)) {
             setResponse("I specialize only in medical diagnosis and disease detection queries. Please ask about health symptoms or medical conditions.");
+            // নন-মেডিকেল প্রশ্নের ক্ষেত্রেও ইনপুট ক্লিয়ার করুন
+            setUserInput("");
             return;
         }
 
-        sendMessageMutation.mutate(userInput);
+        // Store the input before clearing it
+        const inputToSend = userInput;
+
+        // Clear the input immediately
+        setUserInput("");
+
+        // Send the stored input
+        sendMessageMutation.mutate(inputToSend);
 
         // ইনপুট ক্লিয়ার করা হবে মূল কম্পোনেন্টে
     }, [userInput, detectLanguage, detectEmergency, isMedicalQuestion, sendMessageMutation, saveHistoryToStorage, setMedicalHistory]);
-
-    // কম্পোনেন্ট মাউন্ট হলে হিস্টোরি লোড
-    useState(() => {
-        const savedHistory = loadHistoryFromStorage();
-        if (savedHistory.length > 0) {
-            setMedicalHistory(savedHistory);
-        }
-    });
 
     return { userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage, medicalHistory, clearHistory };
 };

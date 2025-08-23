@@ -1,10 +1,20 @@
 /* eslint-disable react/prop-types */
-import { FaAmbulance, FaLanguage, FaPaperPlane, FaStethoscope } from "react-icons/fa";
+import { useState } from "react";
+import { FaAmbulance, FaCopy, FaLanguage, FaPaperPlane, FaStethoscope } from "react-icons/fa";
 import Error from "../../components/Error";
 import Loader from "../../components/Loader";
 
 const AssistantTab = ({
     userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage, handleKeyDown, textareaRef, autoResizeTextarea }) => {
+
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(response.replace(/<[^>]+>/g, " ")).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        });
+    };
 
     return (
         <div>
@@ -49,7 +59,20 @@ const AssistantTab = ({
                 )}
 
                 {response && (
-                    <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: response }} />
+                    <div className="relative group">
+                        <div className="prose prose-sm max-w-none">
+                            <div dangerouslySetInnerHTML={{ __html: response }} />
+                        </div>
+
+                        <button onClick={handleCopy} className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-gray-300 rounded-lg shadow-sm text-gray-700 text-xs hover:bg-gray-400 transition"> <FaCopy className="w-3 h-3" />{copied ? "Copied!" : "Copy"}
+                        </button>
+
+                        {copied && (
+                            <span className="absolute top-[-1.5rem] right-0 bg-green-200 text-green-900 text-xs px-2 py-1 rounded shadow-md animate-fade-in">
+                                Copied to clipboard!
+                            </span>
+                        )}
+                    </div>
                 )}
             </div>
 

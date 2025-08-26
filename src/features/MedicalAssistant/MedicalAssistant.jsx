@@ -36,14 +36,11 @@ const MedicalAssistant = () => {
 
   return (
     <div className="min-h-full flex items-center justify-center py-8 px-4">
-      <PageTitle title="MedAI - Medical Diagnosis Assistant" />
+      <PageTitle title="MedAI Agent Medical" />
       <div className="w-full max-w-4xl">
         <div className="bg-white shadow-2xl rounded-2xl overflow-hidden">
-
           <Header />
-
           <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
-
           <div className="p-6">
             {activeTab === 'assistant' && (
               <AssistantTab userInput={userInput} setUserInput={setUserInput} response={response} responseDivRef={responseDivRef} sendMessageMutation={sendMessageMutation} handleSendMessage={handleSendMessage} handleKeyDown={handleKeyDown} textareaRef={textareaRef} autoResizeTextarea={autoResizeTextarea} />

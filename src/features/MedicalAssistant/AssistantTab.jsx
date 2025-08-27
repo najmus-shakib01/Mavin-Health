@@ -60,15 +60,20 @@ const AssistantTab = ({
 
                 {response && (
                     <div className="relative group">
-                        <div className="prose prose-sm max-w-none">
+                        <div className="prose prose-sm max-w-none pr-20">
                             <div dangerouslySetInnerHTML={{ __html: response }} />
                         </div>
 
-                        <button onClick={handleCopy} className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-gray-300 rounded-lg shadow-sm text-gray-700 text-xs hover:bg-gray-400 transition"> <FaCopy className="w-3 h-3" />{copied ? "Copied!" : "Copy"}
+                        <button
+                            onClick={handleCopy}
+                            className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-gray-300 rounded-lg shadow-sm text-gray-700 text-xs hover:bg-gray-400 transition">
+                            <FaCopy className="w-3 h-3" />
+                            {copied ? "Copied!" : "Copy"}
                         </button>
 
+
                         {copied && (
-                            <span className="absolute top-[-1.5rem] right-0 bg-green-200 text-green-900 text-xs px-2 py-1 rounded shadow-md animate-fade-in">
+                            <span className="absolute top-[-1.2rem] right-0 bg-green-200 text-green-900 text-xs px-2 py-1 rounded shadow-md animate-fade-in z-10">
                                 Copied to clipboard!
                             </span>
                         )}

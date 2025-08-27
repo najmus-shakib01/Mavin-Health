@@ -1,10 +1,9 @@
-import { Menu, Moon, Sun, X } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FaStethoscope } from "react-icons/fa";
 
 // eslint-disable-next-line react/prop-types
 const Header = ({ selectedLanguage, onLanguageChange }) => {
-    const [isOpen, setIsOpen] = useState(false);
     const [darkMode, setDarkMode] = useState(() => {
         const savedTheme = localStorage.getItem("theme");
         return (
@@ -46,10 +45,6 @@ const Header = ({ selectedLanguage, onLanguageChange }) => {
                     <button onClick={toggleDarkMode} className="p-2 text-white bg-blue-600 dark:bg-blue-400 rounded-full transition-colors" aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}>
                         {darkMode ? <Sun size={20} /> : <Moon size={20} />}
                     </button>
-
-                    <span className="lg:hidden text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-                        {isOpen ? <X size={24} /> : <Menu size={24} />}
-                    </span>
                 </div>
             </div>
         </div>

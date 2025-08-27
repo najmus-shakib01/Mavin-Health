@@ -8,11 +8,11 @@ import InfoTab from "./InfoTab";
 import TabNavigation from "./TabNavigation";
 
 const MedicalAssistant = () => {
-
   const { userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage, medicalHistory, clearHistory, } = useMedicalAssistant();
 
   const textareaRef = useRef(null);
   const [activeTab, setActiveTab] = useState('assistant');
+  const [selectedLanguage, setSelectedLanguage] = useState('english'); // ডিফল্ট ভাষা ইংরেজি
 
   // অটো-রিসাইজ টেক্সটএরিয়া
   const autoResizeTextarea = () => {
@@ -34,16 +34,22 @@ const MedicalAssistant = () => {
     }
   };
 
+  // ভাষা পরিবর্তন হ্যান্ডলার
+  const handleLanguageChange = (language) => {
+    setSelectedLanguage(language);
+  };
+
   return (
     <div className="min-h-full flex items-center justify-center py-8 px-4">
       <PageTitle title="MedAI Agent Medical" />
       <div className="w-full max-w-4xl">
         <div className="bg-white shadow-2xl rounded-2xl overflow-hidden">
-          <Header />
+          <Header selectedLanguage={selectedLanguage} onLanguageChange={handleLanguageChange} />
           <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
           <div className="p-6">
             {activeTab === 'assistant' && (
-              <AssistantTab userInput={userInput} setUserInput={setUserInput} response={response} responseDivRef={responseDivRef} sendMessageMutation={sendMessageMutation} handleSendMessage={handleSendMessage} handleKeyDown={handleKeyDown} textareaRef={textareaRef} autoResizeTextarea={autoResizeTextarea} />
+              <AssistantTab userInput={userInput} setUserInput={setUserInput} response={response} responseDivRef={responseDivRef} sendMessageMutation={sendMessageMutation} handleSendMessage={handleSendMessage} handleKeyDown={handleKeyDown} textareaRef={textareaRef} autoResizeTextarea={autoResizeTextarea} selectedLanguage={selectedLanguage}
+              />
             )}
           </div>
 

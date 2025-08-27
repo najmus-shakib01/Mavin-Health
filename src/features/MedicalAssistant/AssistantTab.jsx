@@ -5,7 +5,7 @@ import Error from "../../components/Error";
 import Loader from "../../components/Loader";
 
 const AssistantTab = ({
-    userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage, handleKeyDown, textareaRef, autoResizeTextarea }) => {
+    userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage, handleKeyDown, textareaRef, autoResizeTextarea, selectedLanguage }) => {
 
     const [copied, setCopied] = useState(false);
 
@@ -14,6 +14,14 @@ const AssistantTab = ({
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
         });
+    };
+
+    // ভাষা অনুযায়ী placeholder সেট করা
+    const getPlaceholderText = () => {
+        if (selectedLanguage === 'arabic') {
+            return "شارك مشكلتك الصحية بالتفصيل للحصول على إجابة مناسبة...";
+        }
+        return "Share your health issue in details to get a proper answer...";
     };
 
     return (
@@ -64,11 +72,8 @@ const AssistantTab = ({
                             <div dangerouslySetInnerHTML={{ __html: response }} />
                         </div>
 
-                        <button
-                            onClick={handleCopy}
-                            className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-gray-300 rounded-lg shadow-sm text-gray-700 text-xs hover:bg-gray-400 transition">
-                            <FaCopy className="w-3 h-3" />
-                            {copied ? "Copied!" : "Copy"}
+                        <button onClick={handleCopy} className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-gray-300 rounded-lg shadow-sm text-gray-700 text-xs hover:bg-gray-400 transition">
+                            <FaCopy className="w-3 h-3" />{copied ? "Copied!" : "Copy"}
                         </button>
 
 
@@ -93,24 +98,29 @@ const AssistantTab = ({
 
             <div className="mt-5 flex gap-2 items-end">
                 <div className="flex-1 relative">
-                    <textarea ref={textareaRef} id="userInput" placeholder="Describe your symptoms in English or Arabic..." rows={1} autoFocus className="w-full text-base border border-gray-300 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus: focus:ring-blue-500 focus:border-blue-500 resize-none leading-relaxed max-h-40 overflow-y-auto pr-12" aria-label="Type your health question here..." value={userInput} onChange={(e) => setUserInput(e.target.value)} onInput={autoResizeTextarea} onKeyDown={handleKeyDown}
+                    <textarea ref={textareaRef} id="userInput" placeholder={getPlaceholderText()} rows={1} autoFocus className="w-full text-base border border-gray-300 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none leading-relaxed max-h-40 overflow-y-auto pr-12" aria-label="Type your health question here..." value={userInput} onChange={(e) => setUserInput(e.target.value)} onInput={autoResizeTextarea} onKeyDown={handleKeyDown}
                     ></textarea>
                 </div>
 
-                <button onClick={handleSendMessage} id="sendButton" disabled={sendMessageMutation.isPending || !userInput.trim()} className="px-5 py-7 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed h-[46px] flex items-center gap-2">
+                <button onClick={handleSendMessage} id="sendButton" disabled={sendMessageMutation.isPending || !userInput.trim()} className="px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed h-[46px] flex items-center justify-center gap-2">
                     {sendMessageMutation.isPending ? (
-                        <><Loader className="h-4 w-4" /></>
+                        <Loader className="h-4 w-4" />
                     ) : (
-                        <><FaPaperPlane className="h-4 w-4" />Analyze</>
+                        <>
+                            <FaPaperPlane className="h-4 w-4" />
+                            {selectedLanguage === 'arabic' ? 'تحليل' : 'Analyze'}
+                        </>
                     )}
-
                 </button>
             </div>
 
             <div className="mt-4 flex items-center justify-between">
                 <p className="text-xs text-gray-500"> This assistant only responds to medical questions. For emergencies, contact a doctor immediately.</p>
                 <div className="flex items-center text-xs text-gray-500">
-                    <span className="inline-flex items-center"><FaLanguage className="h-3 w-3 mr-1" />EN/AR</span>
+                    <span className="inline-flex items-center">
+                        <FaLanguage className="h-3 w-3 mr-1" />
+                        {selectedLanguage === 'arabic' ? 'العربية' : 'EN'}
+                    </span>
                 </div>
             </div>
 

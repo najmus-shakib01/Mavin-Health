@@ -2,7 +2,8 @@ import { Menu, Moon, Sun, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FaStethoscope } from "react-icons/fa";
 
-const Header = () => {
+// eslint-disable-next-line react/prop-types
+const Header = ({ selectedLanguage, onLanguageChange }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [darkMode, setDarkMode] = useState(() => {
         const savedTheme = localStorage.getItem("theme");
@@ -33,8 +34,13 @@ const Header = () => {
                 </div>
             </div>
             <div className="flex gap-2 mt-4">
-                <div className="bg-white/20 text-sm px-5 py-2 rounded-full">English</div>
-                <div className="bg-white/20 text-sm px-5 py-2 rounded-full">Arabic</div>
+                <button onClick={() => onLanguageChange('english')} className={`text-sm px-5 py-2 rounded-full ${selectedLanguage === 'english' ? 'bg-white text-blue-600' : 'bg-white/20'}`}>
+                    English
+                </button>
+                <button onClick={() => onLanguageChange('arabic')} className={`text-sm px-5 py-2 rounded-full ${selectedLanguage === 'arabic' ? 'bg-white text-blue-600' : 'bg-white/20'}`}
+                >
+                    Arabic
+                </button>
 
                 <div className="flex items-center gap-5">
                     <button onClick={toggleDarkMode} className="p-2 text-white bg-blue-600 dark:bg-blue-400 rounded-full transition-colors" aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}>

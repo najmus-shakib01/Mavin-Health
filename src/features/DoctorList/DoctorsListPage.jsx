@@ -115,7 +115,7 @@ const DoctorsListPage = () => {
             <h3 className="mt-4 text-lg font-medium text-gray-900">No specialty selected</h3>
             <p className="mt-2 text-gray-600">Please select a medical specialty to find doctors.</p>
             <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
-              {medicalSpecialties.slice(0, 9).map((spec) => (
+              {medicalSpecialties.map((spec) => (
                 <button key={spec} onClick={() => navigate(`/doctors/list?specialty=${spec.toLowerCase()}`)} className="p-3 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 transition">
                   <span className="text-sm font-medium">{spec}</span>
                 </button>

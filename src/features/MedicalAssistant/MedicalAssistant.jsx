@@ -40,13 +40,13 @@ const MedicalAssistant = () => {
   };
 
   return (
-    <div className="min-h-full flex items-center justify-center py-8 px-4">
+    <div className="min-h-full flex items-center justify-center py-8 px-4 dark:bg-gray-800">
       <PageTitle title="MedAI Agent Medical" />
       <div className="w-full max-w-4xl">
-        <div className="bg-white shadow-2xl rounded-2xl overflow-hidden">
+        <div className="bg-white shadow-2xl rounded-2xl overflow-hidden dark:bg-gray-900">
           <Header selectedLanguage={selectedLanguage} onLanguageChange={handleLanguageChange} />
           <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
-          <div className="p-6">
+          <div className="p-6 dark:bg-gray-900">
             {activeTab === 'assistant' && (
               <AssistantTab userInput={userInput} setUserInput={setUserInput} response={response} responseDivRef={responseDivRef} sendMessageMutation={sendMessageMutation} handleSendMessage={handleSendMessage} handleKeyDown={handleKeyDown} textareaRef={textareaRef} autoResizeTextarea={autoResizeTextarea} selectedLanguage={selectedLanguage}
               />

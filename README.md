@@ -7,3 +7,6 @@
   <li>Genaral English (for English queries)</li>
   <li>Genaral Arabic (for Arabic queries)</li>
 </ul>
+
+
+<!-- পরের দিনের কাজ হল ক্লিনিক এর ডিটেলস আনা এবং useMedicalAssistant.jsx এর কোড ২ টি ফাইলে বিভক্ত করা -->

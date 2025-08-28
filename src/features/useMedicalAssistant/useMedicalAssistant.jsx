@@ -1,92 +1,145 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLanguage } from "../../contexts/LanguageContext";
 import useApiCommunication from "./useApiCommunication";
 import useEmergencyDetection from "./useEmergencyDetection";
 import useHistoryManagement from "./useHistoryManagement";
-import useLanguageDetection from "./useLanguageDetection";
 import useMedicalValidation from "./useMedicalValidation";
 
+const useLanguageDetection = () => {
+  const detectLanguage = useCallback((text) => {
+    const hasEnglish = /[a-zA-Z]/.test(text);
+    const hasArabic = /[\u0600-\u06FF]/.test(text);
+    return hasEnglish || hasArabic;
+  }, []);
+
+  return { detectLanguage };
+};
+
 const useMedicalAssistant = () => {
-    const [userInput, setUserInput] = useState("");
-    const [response, setResponse] = useState("");
-    const responseDivRef = useRef(null);
+  const [userInput, setUserInput] = useState("");
+  const [response, setResponse] = useState("");
+  const responseDivRef = useRef(null);
+  const { language, isEnglish, isArabic } = useLanguage();
 
-    // বিভিন্ন হুক থেকে ফাংশনগুলো ইম্পোর্ট করুন
-    const { detectLanguage } = useLanguageDetection();
-    const { detectEmergency } = useEmergencyDetection();
-    const { isMedicalQuestion } = useMedicalValidation();
+  useLanguageDetection();
+  const { detectEmergency } = useEmergencyDetection();
+  const { isMedicalQuestion } = useMedicalValidation();
 
-    const { medicalHistory, setMedicalHistory, clearHistory, loadHistoryFromStorage, saveHistoryToStorage
-    } = useHistoryManagement();
+  const { medicalHistory, setMedicalHistory, clearHistory, loadHistoryFromStorage, saveHistoryToStorage
+  } = useHistoryManagement();
 
-    const { sendMessageMutation } = useApiCommunication(setResponse, setMedicalHistory, saveHistoryToStorage, responseDivRef);
+  const { sendMessageMutation } = useApiCommunication(setResponse, setMedicalHistory, saveHistoryToStorage, responseDivRef, language);
 
-    // কম্পোনেন্ট মাউন্ট হলে হিস্টোরি লোড
-    useEffect(() => {
-        const savedHistory = loadHistoryFromStorage();
-        if (savedHistory.length > 0) {
-            setMedicalHistory(savedHistory);
-        }
-    }, [loadHistoryFromStorage, setMedicalHistory]);
+  useEffect(() => {
+    const savedHistory = loadHistoryFromStorage();
+    if (savedHistory.length > 0) {
+      setMedicalHistory(savedHistory);
+    }
+  }, [loadHistoryFromStorage, setMedicalHistory]);
 
-    // মেসেজ পাঠানো - সংশোধিত
-    const handleSendMessage = useCallback(() => {
-        if (!userInput.trim()) {
-            setResponse("Please describe your symptoms.");
-            return;
-        }
+  const verifyLanguage = useCallback((text) => {
+    const hasEnglish = /[a-zA-Z]/.test(text);
+    const hasArabic = /[\u0600-\u06FF]/.test(text);
 
-        if (!detectLanguage(userInput)) {
-            setResponse(`<span style="color:red">I only accept questions in English or Arabic. Please ask in English or Arabic.</span>`);
-            return;
-        }
+    if (isEnglish && hasArabic) {
+      return {
+        valid: false,
+        message: "<span style='color:red'>Please ask your question in English. You selected English language.</span>"
+      };
+    }
 
-        if (detectEmergency(userInput)) {
-            const emergencyResponse = `
-                <span style="color:red; font-weight:bold;">
-                    ⚠️ EMERGENCY ALERT! You may be experiencing a serious medical condition. 
-                    ➡️ Please go to the nearest hospital immediately or call emergency services.
-                    📞 Call your local emergency number (e.g., 999 in Bangladesh, 911 in USA, 112 in EU).  
-                    🏥 Use Google Maps to search for "nearest hospital" if needed.
-                </span>
-            `;
+    if (isArabic && hasEnglish) {
+      return {
+        valid: false,
+        message: "<span style='color:red'>يرجى طرح سؤالك باللغة العربية. لقد حددت اللغة العربية.</span>"
+      };
+    }
 
-            setResponse(emergencyResponse);
+    if (!hasEnglish && !hasArabic) {
+      return {
+        valid: false,
+        message: isEnglish
+          ? "<span style='color:red'>I only accept questions in English. Please ask in English.</span>"
+          : "<span style='color:red'>أقبل الأسئلة باللغة العربية فقط. يرجى السؤال باللغة العربية.</span>"
+      };
+    }
 
-            // নতুন অবজেক্ট রেফারেন্স তৈরি করে এবং হিস্টোরি আপডেট করে
-            const newHistoryItem = { query: userInput, response: emergencyResponse, language: /[\u0600-\u06FF]/.test(userInput) ? 'Arabic' : 'English', time: new Date().toLocaleTimeString(), id: Date.now(), emergency: true };
+    return { valid: true };
+  }, [isEnglish, isArabic]);
 
-            setMedicalHistory(prev => {
-                const updatedHistory = [...prev, newHistoryItem];
-                saveHistoryToStorage(updatedHistory);
-                return updatedHistory;
-            });
+  const handleSendMessage = useCallback(() => {
+    if (!userInput.trim()) {
+      setResponse(isEnglish
+        ? "Please describe your symptoms."
+        : "يرجى وصف الأعراض الخاصة بك.");
+      return;
+    }
 
-            // ইমার্জেন্সি ক্ষেত্রেও ইনপুট ক্লিয়ার করুন
-            setUserInput("");
+    const languageVerification = verifyLanguage(userInput);
+    if (!languageVerification.valid) {
+      setResponse(languageVerification.message);
+      return;
+    }
 
-            return;
-        }
+    if (detectEmergency(userInput)) {
+      const emergencyResponse = isEnglish
+        ? `
+            <span style="color:red; font-weight:bold;">
+              ⚠️ EMERGENCY ALERT! You may be experiencing a serious medical condition. 
+              ➡️ Please go to the nearest hospital immediately or call emergency services.
+              📞 Call your local emergency number (e.g., 999 in Bangladesh, 911 in USA, 112 in EU).  
+              🏥 Use Google Maps to search for "nearest hospital" if needed.
+            </span>
+          `
+        : `
+            <span style="color:red; font-weight:bold;">
+              ⚠️ تنبيه طوارئ! قد تكون تعاني من حالة طبية خطيرة.
+              ➡️ يرجى التوجه إلى أقرب مستشفى فورًا أو الاتصال بخدمات الطوارئ.
+              📞 اتصل برقم الطوارئ المحلي (مثل 999 في بنغلاديش، 911 في الولايات المتحدة، 112 في الاتحاد الأوروبي).
+              🏥 استخدم خرائط Google للبحث عن "أقرب مستشفى" إذا لزم الأمر.
+            </span>
+          `;
 
-        if (!isMedicalQuestion(userInput)) {
-            setResponse("I specialize only in medical diagnosis and disease detection queries. Please ask about health symptoms or medical conditions.");
-            // নন-মেডিকেল প্রশ্নের ক্ষেত্রেও ইনপুট ক্লিয়ার করুন
-            setUserInput("");
-            return;
-        }
+      setResponse(emergencyResponse);
 
-        // Store the input before clearing it
-        const inputToSend = userInput;
+      const newHistoryItem = {
+        query: userInput,
+        response: emergencyResponse,
+        language: isArabic ? 'Arabic' : 'English',
+        time: new Date().toLocaleTimeString(),
+        id: Date.now(),
+        emergency: true
+      };
 
-        // Clear the input immediately
-        setUserInput("");
+      setMedicalHistory(prev => {
+        const updatedHistory = [...prev, newHistoryItem];
+        saveHistoryToStorage(updatedHistory);
+        return updatedHistory;
+      });
 
-        // Send the stored input
-        sendMessageMutation.mutate(inputToSend);
+      setUserInput("");
 
-        // ইনপুট ক্লিয়ার করা হবে মূল কম্পোনেন্টে
-    }, [userInput, detectLanguage, detectEmergency, isMedicalQuestion, sendMessageMutation, saveHistoryToStorage, setMedicalHistory]);
+      return;
+    }
 
-    return { userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage, medicalHistory, clearHistory };
+    if (!isMedicalQuestion(userInput)) {
+      setResponse(isEnglish
+        ? "I specialize only in medical diagnosis and disease detection queries. Please ask about health symptoms or medical conditions."
+        : "أتخصص فقط في استفسارات التشخيص الطبي واكتشاف الأمراض. يرجى السؤال عن أعراض الصحية أو الحالات الطبية."
+      );
+      setUserInput("");
+      return;
+    }
+
+    const inputToSend = userInput;
+
+    setUserInput("");
+
+    sendMessageMutation.mutate(inputToSend);
+
+  }, [userInput, verifyLanguage, detectEmergency, isMedicalQuestion, sendMessageMutation, saveHistoryToStorage, setMedicalHistory, isEnglish, isArabic]);
+
+  return { userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage, medicalHistory, clearHistory };
 };
 
 export default useMedicalAssistant;

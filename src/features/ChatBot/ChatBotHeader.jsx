@@ -11,7 +11,7 @@ const ChatBotHeader = ({ language, isFullScreen, onClose, onFullScreen }) => {
                 </h3>
             </div>
             <div className="flex items-center gap-2">
-                {!isFullScreen && (
+                {!isFullScreen && onFullScreen && (
                     <button
                         onClick={onFullScreen}
                         className="p-1 hover:bg-blue-700 dark:hover:bg-blue-800 rounded transition-colors"
@@ -34,5 +34,4 @@ const ChatBotHeader = ({ language, isFullScreen, onClose, onFullScreen }) => {
         </div>
     );
 };
-
 export default ChatBotHeader;

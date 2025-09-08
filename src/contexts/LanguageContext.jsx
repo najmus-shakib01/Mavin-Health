@@ -1,3 +1,4 @@
+// contexts/LanguageContext.jsx
 /* eslint-disable react/prop-types */
 import { createContext, useContext, useEffect, useState } from 'react';
 
@@ -12,33 +13,52 @@ export const useLanguage = () => {
   return context;
 };
 
-export const LanguageProvider = ({ children }) => {
+export const LanguageProvider = ({ children, clientRegion = 'saudi' }) => {
   const [language, setLanguage] = useState('english');
+  const [availableLanguages, setAvailableLanguages] = useState(['english', 'arabic']); // Default value set করুন
 
   useEffect(() => {
-    const savedLanguage = localStorage.getItem('selectedLanguage');
-    if (savedLanguage) {
-      setLanguage(savedLanguage);
+    // Set available languages based on client region
+    if (clientRegion === 'usa') {
+      setAvailableLanguages(['english']);
+      setLanguage('english');
+    } else if (clientRegion === 'saudi') {
+      setAvailableLanguages(['english', 'arabic']);
+      
+      // Load saved language if available, otherwise default to english
+      const savedLanguage = localStorage.getItem('selectedLanguage');
+      if (savedLanguage && ['english', 'arabic'].includes(savedLanguage)) {
+        setLanguage(savedLanguage);
+      } else {
+        setLanguage('english');
+      }
     }
-  }, []);
+  }, [clientRegion]);
 
   const changeLanguage = (lang) => {
-    if (lang === 'english' || lang === 'arabic') {
+    if (availableLanguages.includes(lang)) {
       setLanguage(lang);
       localStorage.setItem('selectedLanguage', lang);
+      window.dispatchEvent(new CustomEvent('languageChanged', { detail: lang }));
     }
   };
 
   const value = {
     language,
     changeLanguage,
+    availableLanguages, // এই prop টি обязательно include করুন
     isEnglish: language === 'english',
-    isArabic: language === 'arabic'
+    isArabic: language === 'arabic',
+    direction: language === 'arabic' ? 'rtl' : 'ltr',
+    clientRegion
   };
 
-  return (
-    <LanguageContext.Provider value={value}>
+return (
+  <LanguageContext.Provider value={value}>
+    <div className={language === 'arabic' ? 'font-arabic' : 'font-english'}>
       {children}
-    </LanguageContext.Provider>
-  );
+    </div>
+  </LanguageContext.Provider>
+);
+
 };

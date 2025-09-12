@@ -14,28 +14,14 @@ const LanguageSelector = () => {
     }
 
     return (
-        <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 rounded-full p-1">
+        <div className="flex items-center gap-2 bg-blue-100 dark:bg-gray-900 rounded-full p-1">
             {availableLanguages.includes('english') && (
-                <button 
-                    onClick={() => changeLanguage('english')} 
-                    className={`px-4 py-1 rounded-full text-sm font-medium transition ${
-                        language === 'english'
-                            ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-300'
-                            : 'text-blue-600 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800'
-                    }`}
-                >
+                <button onClick={() => changeLanguage('english')} className={`px-4 py-1 rounded-full text-sm font-medium transition ${language === 'english' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-300' : 'text-blue-600 dark:text-blue-300'}`}>
                     English
                 </button>
             )}
             {availableLanguages.includes('arabic') && (
-                <button 
-                    onClick={() => changeLanguage('arabic')} 
-                    className={`px-4 py-1 rounded-full text-sm font-medium transition ${
-                        language === 'arabic'
-                            ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-300'
-                            : 'text-blue-600 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800'
-                    }`}
-                >
+                <button onClick={() => changeLanguage('arabic')} className={`px-4 py-1 rounded-full text-sm font-medium transition ${language === 'arabic' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-300' : 'text-blue-600 dark:text-blue-300'}`}>
                     العربية
                 </button>
             )}

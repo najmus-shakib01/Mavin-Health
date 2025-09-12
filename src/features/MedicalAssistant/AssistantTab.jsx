@@ -39,13 +39,11 @@ const AssistantTab = ({
 
     return (
         <div>
-            <div ref={responseDivRef} id="response" className="border border-gray-200 dark:bg-gray-800 dark:border-gray-700 rounded-xl p-5 min-h-[300px] max-h-[400px] overflow-y-auto bg-gray-50">
+            <div ref={responseDivRef} id="response" className="border border-gray-200 dark:bg-gray-900 dark:border-gray-700 rounded-xl p-5 min-h-[300px] max-h-[400px] overflow-y-auto bg-gray-50">
 
                 {!response && !sendMessageMutation.isPending && (
                     <div className="h-full flex flex-col items-center justify-center text-center text-gray-500">
-
                         <FaStethoscope className="w-12 h-12 text-gray-300 mb-3" />
-
                         <h3 className="font-medium text-lg mb-1 pr-5">
                             {isEnglish ? "Medical Symptom Checker" : "مدقق الأعراض الطبية"}
                         </h3>
@@ -54,8 +52,7 @@ const AssistantTab = ({
                         </p>
 
                         <div className="mt-6 grid grid-cols-2 gap-3 w-full max-w-sm">
-
-                            <div className="bg-white dark:bg-gray-900 dark:border-gray-600 p-3 rounded-lg border border-gray-200 text-center">
+                            <div className="bg-white dark:bg-gray-800 dark:border-gray-600 p-3 rounded-lg border border-gray-200 text-center">
                                 <div className="bg-blue-100 text-blue-600 p-2 rounded-full inline-flex mb-2">
                                     <FaLanguage className="w-5 h-5" />
                                 </div>
@@ -64,7 +61,7 @@ const AssistantTab = ({
                                 </p>
                             </div>
 
-                            <div className="bg-white dark:bg-gray-900 dark:border-gray-600 p-3 rounded-lg border border-gray-200 text-center">
+                            <div className="bg-white dark:bg-gray-800 dark:border-gray-600 p-3 rounded-lg border border-gray-200 text-center">
                                 <div className="bg-emerald-100 text-emerald-600 p-2 rounded-full inline-flex mb-2">
                                     <FaAmbulance className="w-5 h-5" />
                                 </div>
@@ -135,46 +132,23 @@ const AssistantTab = ({
                 </div>
             )}
 
-            <div className="mt-5 flex gap-2 items-end">
+            <div className="mt-5 flex flex-col md:flex-row gap-2 items-stretch md:items-end">
                 <div className="flex-1 relative">
-                    <textarea
-                        ref={textareaRef}
-                        id="userInput"
-                        placeholder={
-                            isEnglish
-                                ? "Describe your health issue in detail to get a proper answer..."
-                                : "صف مشكلتك الصحية بالتفصيل للحصول على إجابة مناسبة..."
-                        }
-                        rows={1}
-                        autoFocus
-                        className={`w-full text-base border border-gray-300 dark:bg-gray-800 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none leading-relaxed max-h-40 overflow-y-auto pr-12 ${isEnglish ? "text-left" : "text-right"
-                            }`}
-                        dir={isEnglish ? "ltr" : "rtl"}
-                        aria-label={
-                            isEnglish
-                                ? "Type your health question here..."
-                                : "اكتب سؤالك الصحي هنا..."
-                        }
-                        value={userInput}
-                        onChange={(e) => setUserInput(e.target.value)}
-                        onInput={autoResizeTextarea}
-                        onKeyDown={handleKeyDown}
-                    />
+                    <textarea ref={textareaRef} id="userInput" placeholder={isEnglish ? "Describe your health issue in detail to get a proper answer..." : "صف مشكلتك الصحية بالتفصيل للحصول على إجابة مناسبة..."} rows={1} autoFocus className={`w-full text-base border border-gray-300 dark:bg-gray-800 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none leading-relaxed max-h-40 overflow-y-auto pr-12 ${isEnglish ? "text-left" : "text-right"}`} dir={isEnglish ? "ltr" : "rtl"} value={userInput} onChange={(e) => setUserInput(e.target.value)} onInput={autoResizeTextarea} onKeyDown={handleKeyDown} />
 
-                    <button
-                        onClick={() => setIsVoiceModalOpen(true)}
-                        className="absolute right-3 bottom-3 p-1 text-gray-500 hover:text-blue-600 transition"
-                        title={isEnglish ? "Voice Input" : "الإدخال الصوتي"}
-                    >
+                    <button onClick={() => setIsVoiceModalOpen(true)} className="absolute right-3 bottom-3 p-1 text-gray-500 hover:text-blue-600 transition" title={isEnglish ? "Voice Input" : "الإدخال الصوتي"}>
                         <FaMicrophone className="h-4 w-4" />
                     </button>
                 </div>
 
-                <button onClick={handleSendMessage} id="sendButton" disabled={sendMessageMutation.isPending || !userInput.trim()} className="px-5 py-7 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed h-[46px] flex items-center gap-2">
+                <button onClick={handleSendMessage} id="sendButton" disabled={sendMessageMutation.isPending || !userInput.trim()} className="w-full md:w-auto px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                     {sendMessageMutation.isPending ? (
-                        <><Loader className="h-4 w-4" /></>
+                        <Loader className="h-4 w-4" />
                     ) : (
-                        <><FaPaperPlane className="h-4 w-4" />{isEnglish ? "Analyze" : "تحليل"}</>
+                        <>
+                            <FaPaperPlane className="h-4 w-4" />
+                            {isEnglish ? "Analyze" : "تحليل"}
+                        </>
                     )}
                 </button>
             </div>
@@ -191,11 +165,7 @@ const AssistantTab = ({
                 </div>
             </div>
 
-            <VoiceInputModal
-                isOpen={isVoiceModalOpen}
-                onClose={() => setIsVoiceModalOpen(false)}
-                onTextConverted={handleVoiceTextConverted}
-            />
+            <VoiceInputModal isOpen={isVoiceModalOpen} onClose={() => setIsVoiceModalOpen(false)} onTextConverted={handleVoiceTextConverted} />
         </div>
     );
 };

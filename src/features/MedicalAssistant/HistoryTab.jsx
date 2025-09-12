@@ -3,7 +3,7 @@ import { FaHistory } from "react-icons/fa";
 
 const HistoryTab = ({ medicalHistory, clearHistory }) => {
     return (
-        <div className="min-h-[300px] dark:bg-gray-900">
+        <div className="min-h-[300px] dark:bg-gray-800">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium text-gray-900 pl-5 dark:text-white">Medical Inquiry History</h3>
                 {medicalHistory.length > 0 && (

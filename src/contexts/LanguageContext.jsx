@@ -1,4 +1,3 @@
-// contexts/LanguageContext.jsx
 /* eslint-disable react/prop-types */
 import { createContext, useContext, useEffect, useState } from 'react';
 
@@ -18,14 +17,12 @@ export const LanguageProvider = ({ children, clientRegion = 'saudi' }) => {
   const [availableLanguages, setAvailableLanguages] = useState(['english', 'arabic']); // Default value set করুন
 
   useEffect(() => {
-    // Set available languages based on client region
     if (clientRegion === 'usa') {
       setAvailableLanguages(['english']);
       setLanguage('english');
     } else if (clientRegion === 'saudi') {
       setAvailableLanguages(['english', 'arabic']);
-      
-      // Load saved language if available, otherwise default to english
+
       const savedLanguage = localStorage.getItem('selectedLanguage');
       if (savedLanguage && ['english', 'arabic'].includes(savedLanguage)) {
         setLanguage(savedLanguage);
@@ -46,19 +43,18 @@ export const LanguageProvider = ({ children, clientRegion = 'saudi' }) => {
   const value = {
     language,
     changeLanguage,
-    availableLanguages, // এই prop টি обязательно include করুন
+    availableLanguages,
     isEnglish: language === 'english',
     isArabic: language === 'arabic',
     direction: language === 'arabic' ? 'rtl' : 'ltr',
     clientRegion
   };
 
-return (
-  <LanguageContext.Provider value={value}>
-    <div className={language === 'arabic' ? 'font-arabic' : 'font-english'}>
-      {children}
-    </div>
-  </LanguageContext.Provider>
-);
-
+  return (
+    <LanguageContext.Provider value={value}>
+      <div className={language === 'arabic' ? 'font-arabic' : 'font-english'}>
+        {children}
+      </div>
+    </LanguageContext.Provider>
+  );
 };

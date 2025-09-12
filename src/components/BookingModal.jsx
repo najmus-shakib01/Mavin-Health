@@ -80,9 +80,7 @@ const BookingModal = ({ practitioner, clinic, onClose, onConfirm }) => {
                                 </span>
                                 <select required value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} className="pl-10 dark:bg-gray-800 p-3 w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     <option value="">Select time</option>
-                                    {timeSlots.map((time) => (
-                                        <option key={time} value={time}>{time}</option>
-                                    ))}
+                                    {timeSlots.map((time) => (<option key={time} value={time}>{time}</option>))}
                                 </select>
                             </div>
                         </div>

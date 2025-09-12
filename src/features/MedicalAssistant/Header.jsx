@@ -23,7 +23,7 @@ const Header = () => {
     };
 
     return (
-        <div className="bg-gradient-to-r from-blue-600 to-emerald-600 text-white p-4 md:p-6 dark:from-gray-700 dark:to-gray-700">
+        <div className="bg-gradient-to-r from-blue-600 to-emerald-600 text-white p-4 md:p-6 dark:from-gray-700 dark:to-gray-700 pt-10">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 md:gap-4">
                     <div className="p-2 md:p-3 bg-white/20 rounded-full">

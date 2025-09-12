@@ -1,123 +1,78 @@
+/* eslint-disable react/prop-types */
+import { Menu } from "lucide-react";
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 
-// eslint-disable-next-line react/prop-types
 const TabNavigation = ({ activeTab, setActiveTab }) => {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const tabs = [
+    { id: "assistant", label: "Diagnosis Assistant", icon: "🩺" },
+    { id: "history", label: "Medical History", icon: "📋" },
+    { id: "info", label: "Health Information", icon: "💊" },
+    { id: "doctors", label: "Doctors", link: "/doctors", icon: "👨‍⚕️" },
+    { id: "practitioners", label: "Practitioners", link: "/practitioners", icon: "👩‍⚕️" },
+    { id: "clinics", label: "Clinics", link: "/clinics", icon: "🏥" },
+    { id: "booking-success", label: "Appointments", link: "/booking-success", icon: "📅" },
+  ];
+
   return (
-    <div>
-      <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto hide-scrollbar md:hidden">
-        <div className="flex">
-          {[
-            { id: "assistant", label: "Diagnosis Assistant" },
-            { id: "history", label: "Medical History" },
-            { id: "info", label: "Health Information" },
-            { id: "doctors", label: "Doctor", link: "/doctors" },
-            { id: "practitioners", label: "Practitioners", link: "/practitioners" },
-            { id: "clinics", label: "Clinics", link: "/clinics" },
-            { id: "booking-success", label: "Booking Success", link: "/booking-success" },
-          ].map((tab) =>
-            tab.link ? (
-              <NavLink
-                key={tab.id}
-                to={tab.link}
-                className={`px-4 py-2 md:px-6 md:py-3 font-medium text-xs whitespace-nowrap ${activeTab === tab.id
-                  ? "text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400"
-                  }`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </NavLink>
-            ) : (
-              <button
-                key={tab.id}
-                className={`px-4 py-2 md:px-6 md:py-3 font-medium text-xs whitespace-nowrap ${activeTab === tab.id
-                  ? "text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400"
-                  }`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            )
-          )}
+    <>
+      <div className="hidden md:block w-64 bg-white dark:bg-gray-800 h-screen shadow-lg fixed left-0 top-0 overflow-y-auto pt-20">
+        <div className="p-4">
+          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4 pl-3">Navigation</h2>
+          <nav className="space-y-1">
+            {tabs.map((tab) =>
+              tab.link ? (
+                <NavLink key={tab.id} to={tab.link} className={({ isActive }) =>
+                  `flex items-center px-4 py-3 rounded-lg transition-colors duration-200 ${isActive ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-l-4 border-blue-500" : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"}`} onClick={() => setActiveTab(tab.id)}>
+                  <span className="mr-3 text-xl">{tab.icon}</span>
+                  <span className="font-medium">{tab.label}</span>
+                </NavLink>
+              ) : (
+                <button key={tab.id} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors duration-200 text-left ${activeTab === tab.id
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-l-4 border-blue-500"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                  }`} onClick={() => setActiveTab(tab.id)}>
+                  <span className="mr-3 text-xl">{tab.icon}</span>
+                  <span className="font-medium">{tab.label}</span>
+                </button>
+              )
+            )}
+          </nav>
         </div>
       </div>
 
-      <div className="hidden md:grid border-b border-gray-200 dark:border-gray-700 gap-2">
-        <div className="grid grid-cols-4">
-          <button
-            className={`px-4 py-2 font-medium ${activeTab === "assistant"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500"
-              }`}
-            onClick={() => setActiveTab("assistant")}
-          >
-            Diagnosis Assistant
-          </button>
-          <button
-            className={`px-4 py-2 font-medium ${activeTab === "history"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500"
-              }`}
-            onClick={() => setActiveTab("history")}
-          >
-            Medical History
-          </button>
-          <button
-            className={`px-4 py-2 font-medium ${activeTab === "info"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500"
-              }`}
-            onClick={() => setActiveTab("info")}
-          >
-            Health Information
-          </button>
-          <NavLink
-            to="/doctors"
-            className={`px-4 py-2 font-medium ${activeTab === "doctors"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500"
-              }`}
-            onClick={() => setActiveTab("doctors")}
-          >
-            Doctor
-          </NavLink>
-        </div>
-
-        <div className="grid grid-cols-3">
-          <NavLink
-            to="/practitioners"
-            className={`px-4 py-2 font-medium ${activeTab === "practitioners"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500"
-              }`}
-            onClick={() => setActiveTab("practitioners")}
-          >
-            Practitioners
-          </NavLink>
-          <NavLink
-            to="/clinics"
-            className={`px-4 py-2 font-medium ${activeTab === "clinics"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500"
-              }`}
-            onClick={() => setActiveTab("clinics")}
-          >
-            Clinics
-          </NavLink>
-          <NavLink
-            to="/booking-success"
-            className={`px-4 py-2 font-medium ${activeTab === "booking-success"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500"
-              }`}
-            onClick={() => setActiveTab("booking-success")}
-          >
-            Booking Success
-          </NavLink>
-        </div>
+      <div className="md:hidden fixed top-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-md z-50 flex items-center justify-between px-4 py-3">
+        <h1 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Navigation</h1>
+        <button onClick={() => setMobileOpen(!mobileOpen)} className="text-gray-700 dark:text-gray-200">
+          <Menu size={28} />
+        </button>
       </div>
-    </div>
+
+      {mobileOpen && (
+        <div className="md:hidden fixed top-0 left-0 w-64 h-screen bg-white dark:bg-gray-800 shadow-lg z-50 pt-16 p-4">
+          <nav className="space-y-1">
+            {tabs.map((tab) =>
+              tab.link ? (
+                <NavLink key={tab.id} to={tab.link} className={({ isActive }) =>
+                  `flex items-center px-4 py-3 rounded-lg transition-colors duration-200 ${isActive ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-l-4 border-blue-500" : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"}`}
+                  onClick={() => { setActiveTab(tab.id); setMobileOpen(false); }}>
+                  <span className="mr-3 text-xl">{tab.icon}</span>
+                  <span className="font-medium">{tab.label}</span>
+                </NavLink>
+              ) : (
+                <button key={tab.id} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors duration-200 text-left ${activeTab === tab.id ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-l-4 border-blue-500" : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"}`}
+                  onClick={() => { setActiveTab(tab.id); setMobileOpen(false); }}>
+                  <span className="mr-3 text-xl">{tab.icon}</span>
+                  <span className="font-medium">{tab.label}</span>
+                </button>
+              )
+            )}
+          </nav>
+        </div>
+      )}
+    </>
   );
 };
 

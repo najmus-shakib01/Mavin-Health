@@ -1,6 +1,6 @@
 const InfoTab = () => {
     return (
-        <div className="min-h-[300px] dark:bg-gray-900">
+        <div className="min-h-[300px] dark:bg-gray-800">
             <h3 className="font-medium text-gray-900 mb-4 pl-5 dark:text-white">Health Information Resources</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5">
 

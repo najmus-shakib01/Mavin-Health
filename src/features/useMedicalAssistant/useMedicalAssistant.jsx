@@ -1,41 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import useApiCommunication from "./useApiCommunication";
 import useEmergencyDetection from "./useEmergencyDetection";
-import useHistoryManagement from "./useHistoryManagement";
 import useMedicalValidation from "./useMedicalValidation";
-
-const useLanguageDetection = () => {
-  const detectLanguage = useCallback((text) => {
-    const hasEnglish = /[a-zA-Z]/.test(text);
-    const hasArabic = /[\u0600-\u06FF]/.test(text);
-    return hasEnglish || hasArabic;
-  }, []);
-
-  return { detectLanguage };
-};
 
 const useMedicalAssistant = () => {
   const [userInput, setUserInput] = useState("");
   const [response, setResponse] = useState("");
   const responseDivRef = useRef(null);
-  const { language, isEnglish, isArabic } = useLanguage();
+  const { isEnglish, isArabic } = useLanguage();
 
-  useLanguageDetection();
   const { detectEmergency } = useEmergencyDetection();
   const { isMedicalQuestion } = useMedicalValidation();
 
-  const { medicalHistory, setMedicalHistory, clearHistory, loadHistoryFromStorage, saveHistoryToStorage
-  } = useHistoryManagement();
-
-  const { sendMessageMutation } = useApiCommunication(setResponse, setMedicalHistory, saveHistoryToStorage, responseDivRef, language);
-
-  useEffect(() => {
-    const savedHistory = loadHistoryFromStorage();
-    if (savedHistory.length > 0) {
-      setMedicalHistory(savedHistory);
-    }
-  }, [loadHistoryFromStorage, setMedicalHistory]);
+  const { sendMessageMutation } = useApiCommunication(setResponse, responseDivRef);
 
   const verifyLanguage = useCallback((text) => {
     const hasEnglish = /[a-zA-Z]/.test(text);
@@ -101,24 +79,7 @@ const useMedicalAssistant = () => {
           `;
 
       setResponse(emergencyResponse);
-
-      const newHistoryItem = {
-        query: userInput,
-        response: emergencyResponse,
-        language: isArabic ? 'Arabic' : 'English',
-        time: new Date().toLocaleTimeString(),
-        id: Date.now(),
-        emergency: true
-      };
-
-      setMedicalHistory(prev => {
-        const updatedHistory = [...prev, newHistoryItem];
-        saveHistoryToStorage(updatedHistory);
-        return updatedHistory;
-      });
-
       setUserInput("");
-
       return;
     }
 
@@ -132,14 +93,12 @@ const useMedicalAssistant = () => {
     }
 
     const inputToSend = userInput;
-
     setUserInput("");
-
     sendMessageMutation.mutate(inputToSend);
 
-  }, [userInput, verifyLanguage, detectEmergency, isMedicalQuestion, sendMessageMutation, saveHistoryToStorage, setMedicalHistory, isEnglish, isArabic]);
+  }, [userInput, verifyLanguage, detectEmergency, isMedicalQuestion, sendMessageMutation, isEnglish]);
 
-  return { userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage, medicalHistory, clearHistory };
+  return { userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage };
 };
 
 export default useMedicalAssistant;

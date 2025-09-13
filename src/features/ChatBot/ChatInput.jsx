@@ -24,7 +24,7 @@ const ChatInput = ({
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
-            placeholder={isEnglish ? "Type your message..." : "اكتب رسالتك..."}
+            placeholder={isEnglish ? "Describe your health issue in detail to get a proper answer..." : "صف مشكلتك الصحية بالتفصيل للحصول على إجابة مناسبة..."}
             rows={1}
             className="w-full text-sm border border-gray-300 dark:bg-gray-700 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
             value={inputText}

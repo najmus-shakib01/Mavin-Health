@@ -80,7 +80,6 @@ const BookingSuccessPage = () => {
               </div>
             </div>
 
-            {/* Next Steps */}
             <div className="bg-blue-50 rounded-lg p-6 mb-6 text-left dark:bg-blue-900/20">
               <h2 className="text-lg font-semibold text-gray-900 mb-3 dark:text-white">Next Steps</h2>
               <ul className="list-disc list-inside text-gray-700 space-y-2 dark:text-gray-300">
@@ -90,8 +89,7 @@ const BookingSuccessPage = () => {
                 <li>Cancel at least 24 hours in advance if you cannot make it</li>
               </ul>
             </div>
-
-            {/* Action Buttons */}
+            
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button onClick={() => navigate("/")} className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition dark:bg-blue-700 dark:hover:bg-blue-800">
                 Back to Home

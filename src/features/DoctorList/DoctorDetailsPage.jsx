@@ -7,7 +7,6 @@ const DoctorDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // সব specialty এর doctors একসাথে মিক্স করি
   const doctor = Object.values(allDoctors).flat().find(d => d.id === parseInt(id));
 
   if (!doctor) {
@@ -19,7 +18,6 @@ const DoctorDetailsPage = () => {
     );
   }
 
-  // Find the specialty for the current doctor
   const specialty = Object.keys(allDoctors).find(key =>
     allDoctors[key].some(d => d.id === doctor.id)
   );
@@ -67,7 +65,6 @@ const DoctorDetailsPage = () => {
                 <span className="text-gray-600 dark:text-gray-400"> / consultation</span>
               </div>
             </div>
-
           </div>
         </div>
       </div>

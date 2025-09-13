@@ -11,7 +11,6 @@ const PractitionerDetailsPage = () => {
     const [showBookingModal, setShowBookingModal] = useState(false);
     const [bookingSuccess, setBookingSuccess] = useState(false);
 
-    // Find clinic and practitioner based on IDs
     const clinic = clinics.find(c => c.id === parseInt(clinicId));
     const practitioner = clinic?.practitioners.find(p => p.id === parseInt(practitionerId));
 
@@ -58,7 +57,6 @@ const PractitionerDetailsPage = () => {
                     </div>
                 )}
 
-                {/* Practitioner Details */}
                 <div className="bg-white rounded-xl shadow-md overflow-hidden dark:bg-gray-900 mb-8">
                     <div className="md:flex">
                         <div className="md:flex-shrink-0">
@@ -100,7 +98,6 @@ const PractitionerDetailsPage = () => {
                     </div>
                 </div>
 
-                {/* About the Clinic */}
                 <div className="bg-white rounded-xl shadow-md p-6 dark:bg-gray-900">
                     <h2 className="text-xl font-bold text-gray-900 mb-4 dark:text-white">About {clinic.name}</h2>
                     <div className="flex items-center text-gray-600 mb-4 dark:text-gray-300">

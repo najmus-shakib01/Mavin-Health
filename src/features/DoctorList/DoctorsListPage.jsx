@@ -13,20 +13,17 @@ const DoctorsListPage = () => {
   const [searchTerm] = useState("");
   const [specialty, setSpecialty] = useState("");
 
-  // URL প্যারামিটার থেকে specialty সেট করা হল
   useEffect(() => {
     if (specialtyParam) {
       setSpecialty(specialtyParam);
     }
   }, [specialtyParam]);
 
-  // specialty কে capitalize করে দেখানো হয়েছে
   const capitalizeFirstLetter = (string) => {
     if (!string) return "";
     return string.charAt(0).toUpperCase() + string.slice(1);
   };
 
-  // ফিল্টার্ড ডাক্তারের লিস্ট
   const filteredDoctors = () => {
     if (!specialty) return [];
     let doctors = allDoctors[specialty.toLowerCase()] || [];

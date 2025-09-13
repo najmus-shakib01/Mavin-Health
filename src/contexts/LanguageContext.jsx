@@ -14,7 +14,7 @@ export const useLanguage = () => {
 
 export const LanguageProvider = ({ children, clientRegion = 'saudi' }) => {
   const [language, setLanguage] = useState('english');
-  const [availableLanguages, setAvailableLanguages] = useState(['english', 'arabic']); // Default value set করুন
+  const [availableLanguages, setAvailableLanguages] = useState(['english', 'arabic']); 
 
   useEffect(() => {
     if (clientRegion === 'usa') {

@@ -1,4 +1,3 @@
-// features/Clinics/ClinicsPage.jsx
 import { useState } from "react";
 import { FaArrowLeft, FaEye } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +12,7 @@ const ClinicsPage = () => {
     const handleViewClinicDetails = (clinic) => {
         navigate(`/clinics/${clinic.id}`);
     };
-
+    
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-gray-800">
             <Header />
@@ -32,13 +31,8 @@ const ClinicsPage = () => {
                     {clinics.map((clinic) => (
                         <div key={clinic.id} className="relative">
                             <ClinicCard clinic={clinic} onViewPractitioners={() => setSelectedClinic(clinic)} />
-                            
-                            {/* ডিটেলস ভিউ বাটন */}
-                            <button
-                                onClick={() => handleViewClinicDetails(clinic)}
-                                className="absolute top-4 right-4 flex items-center gap-2 px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition opacity-90"
-                                title="View Clinic Details"
-                            >
+
+                            <button onClick={() => handleViewClinicDetails(clinic)} className="absolute top-4 right-4 flex items-center gap-2 px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition opacity-90" title="View Clinic Details">
                                 <FaEye className="h-3 w-3" />
                                 View Details
                             </button>

@@ -39,7 +39,6 @@ const PractitionersDetails = () => {
         setShowBookingModal(false);
         setBookingSuccess(true);
 
-        // Hide success message after 3 seconds
         setTimeout(() => setBookingSuccess(false), 3000);
     };
 

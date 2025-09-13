@@ -3,14 +3,11 @@ import { useCallback, useState } from "react";
 const useHistoryManagement = () => {
     const [medicalHistory, setMedicalHistory] = useState([]);
 
-    // হিস্টোরি ক্লিয়ার করা
     const clearHistory = useCallback(() => {
         setMedicalHistory([]);
-        // লোকাল স্টোরেজ থেকেও ডিলিট
         localStorage.removeItem('medicalAssistantHistory');
     }, []);
 
-    // লোকাল স্টোরেজ থেকে হিস্টোরি লোড
     const loadHistoryFromStorage = useCallback(() => {
         try {
             const savedHistory = localStorage.getItem('medicalAssistantHistory');
@@ -23,7 +20,6 @@ const useHistoryManagement = () => {
         return [];
     }, []);
 
-    // লোকাল স্টোরেজে হিস্টোরি সেভ 
     const saveHistoryToStorage = useCallback((history) => {
         try {
             localStorage.setItem('medicalAssistantHistory', JSON.stringify(history));

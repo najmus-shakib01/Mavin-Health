@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 
 const useEmergencyDetection = () => {
-    // ইমার্জেন্সি লক্ষণ ডিটেক্ট করা
     const detectEmergency = useCallback((text) => {
         const emergencyKeywords = [
             'chest pain', 'heart attack', 'stroke', 'bleeding heavily',

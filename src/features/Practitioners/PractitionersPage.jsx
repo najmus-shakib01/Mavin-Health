@@ -21,8 +21,6 @@ const PractitionersPage = () => {
         console.log("Booking confirmed:", bookingData);
         setShowBookingModal(false);
         setBookingSuccess(true);
-
-        // Hide success message after 3 seconds
         setTimeout(() => setBookingSuccess(false), 3000);
     };
 
@@ -48,9 +46,8 @@ const PractitionersPage = () => {
                     <div className="space-y-6">
                         {soloPractitioners.map((practitioner) => (
                             <div key={practitioner.id} className="relative">
-                                <SoloPractitionerCard practitioner={practitioner} onBookAppointment={handleBookAppointment}
-                                />
-                                {/* ডিটেলস ভিউ বাটন */}
+                                <SoloPractitionerCard practitioner={practitioner} onBookAppointment={handleBookAppointment}/>
+
                                 <button onClick={() => navigate(`/practitioners/solo/${practitioner.id}`)} className="absolute top-4 right-4 flex items-center gap-2 px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition opacity-90" title="View Details">
                                     <FaEye className="h-3 w-3" />
                                     View Details

@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 
 const useMedicalValidation = () => {
-    // মেডিকেল সম্পর্কিত প্রশ্ন কিনা চেক করা
     const isMedicalQuestion = useCallback((text) => {
         const medicalKeywords = [
             'pain', 'symptom', 'fever', 'headache', 'cough', 'disease',

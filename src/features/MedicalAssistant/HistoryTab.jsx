@@ -7,10 +7,7 @@ const HistoryTab = ({ medicalHistory, clearHistory }) => {
             <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium text-gray-900 pl-5 dark:text-white">Medical Inquiry History</h3>
                 {medicalHistory.length > 0 && (
-                    <button
-                        onClick={clearHistory}
-                        className="text-xs text-red-600 pr-10 font-bold dark:text-red-400"
-                    >
+                    <button onClick={clearHistory} className="text-xs text-red-600 pr-10 font-bold dark:text-red-400">
                         Clear All
                     </button>
                 )}
@@ -25,10 +22,7 @@ const HistoryTab = ({ medicalHistory, clearHistory }) => {
             ) : (
                 <div className="space-y-3 max-h-[400px] p-5 overflow-y-auto">
                     {medicalHistory.map((item, index) => (
-                        <div
-                            key={index}
-                            className="bg-gray-50 p-5 rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700"
-                        >
+                        <div key={index} className="bg-gray-50 p-5 rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
                             <div className="flex justify-between items-start mb-2">
                                 <span className="text-xs text-gray-500 dark:text-gray-400">
                                     {new Date(item.timestamp).toLocaleString()}
@@ -40,10 +34,7 @@ const HistoryTab = ({ medicalHistory, clearHistory }) => {
                             <p className="text-sm font-medium mb-2 dark:text-white">
                                 Your Question: &quot;{item.query}&quot;
                             </p>
-                            <div
-                                className="text-sm prose prose-sm max-w-none dark:text-gray-300"
-                                dangerouslySetInnerHTML={{ __html: item.response }}
-                            />
+                            <div className="text-sm prose prose-sm max-w-none dark:text-gray-300" dangerouslySetInnerHTML={{ __html: item.response }} />
                         </div>
                     ))}
                 </div>

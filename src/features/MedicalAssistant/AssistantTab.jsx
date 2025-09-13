@@ -69,7 +69,6 @@ const AssistantTab = ({
                                     {isEnglish ? "Emergency Detection" : "كشف الطوارئ"}
                                 </p>
                             </div>
-
                         </div>
                     </div>
                 )}

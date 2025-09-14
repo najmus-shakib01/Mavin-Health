@@ -10,10 +10,10 @@ const ChatHeader = ({ isEnglish, language, changeLanguage, isFullscreen, toggleF
         </div>
         <div>
           <h3 className="font-semibold text-gray-800 dark:text-white text-sm sm:text-base">
-            {isEnglish ? "Medical Assistant" : "المساعد الطبي"}
+          Medical Assistant
           </h3>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-            {isEnglish ? "AI-powered medical consultation" : "استشارة طبية مدعومة بالذكاء الاصطناعي"}
+            AI-powered medical consultation
           </p>
         </div>
       </div>

@@ -53,7 +53,7 @@ const AssistantTab = ({
 
                         <div className="mt-6 grid grid-cols-2 gap-3 w-full max-w-sm">
                             <div className="bg-white dark:bg-gray-800 dark:border-gray-600 p-3 rounded-lg border border-gray-200 text-center">
-                                <div className="bg-blue-100 text-blue-600 p-2 rounded-full inline-flex mb-2">
+                                <div className="bg-blue-200 text-blue-600 p-2 rounded-full inline-flex mb-2">
                                     <FaLanguage className="w-5 h-5" />
                                 </div>
                                 <p className="text-xs font-medium">
@@ -135,8 +135,8 @@ const AssistantTab = ({
                 <div className="flex-1 relative">
                     <textarea ref={textareaRef} id="userInput" placeholder={isEnglish ? "Describe your health issue in detail to get a proper answer..." : "صف مشكلتك الصحية بالتفصيل للحصول على إجابة مناسبة..."} rows={1} autoFocus className={`w-full text-base border border-gray-300 dark:bg-gray-800 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none leading-relaxed max-h-40 overflow-y-auto pr-12 ${isEnglish ? "text-left" : "text-right"}`} dir={isEnglish ? "ltr" : "rtl"} value={userInput} onChange={(e) => setUserInput(e.target.value)} onInput={autoResizeTextarea} onKeyDown={handleKeyDown} />
 
-                    <button onClick={() => setIsVoiceModalOpen(true)} className="absolute right-3 bottom-3 p-1 text-gray-500 hover:text-blue-600 transition" title={isEnglish ? "Voice Input" : "الإدخال الصوتي"}>
-                        <FaMicrophone className="h-4 w-4" />
+                    <button onClick={() => setIsVoiceModalOpen(true)} className="absolute right-3 bottom-3 p-2 bg-gray-300 rounded-full text-gray-500" title={isEnglish ? "Voice Input" : "الإدخال الصوتي"}>
+                        <FaMicrophone className="h-5 w-5" />
                     </button>
                 </div>
 

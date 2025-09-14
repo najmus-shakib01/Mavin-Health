@@ -19,9 +19,6 @@ const ChatBotModal = ({ isOpen, onClose }) => {
         }
     }, [messages]);
 
-    // Outside click handler removal - শুধুমাত্র ক্রস বাটনে ক্লিক করলে ক্লোজ হবে
-    // ESC key handler removal - ESC key প্রেস করলে ক্লোজ হবে না
-
     if (!isOpen) return null;
 
     return (
@@ -65,15 +62,7 @@ const ChatBotModal = ({ isOpen, onClose }) => {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    <ChatInput 
-                        inputText={inputText} 
-                        setInputText={setInputText} 
-                        isEnglish={isEnglish} 
-                        autoResizeTextarea={autoResizeTextarea} 
-                        handleSendMessage={handleSendMessage} 
-                        setIsVoiceModalOpen={setIsVoiceModalOpen} 
-                        sendMessageMutation={sendMessageMutation} 
-                        textareaRef={textareaRef}
+                    <ChatInput inputText={inputText} setInputText={setInputText} isEnglish={isEnglish} autoResizeTextarea={autoResizeTextarea} handleSendMessage={handleSendMessage} setIsVoiceModalOpen={setIsVoiceModalOpen} sendMessageMutation={sendMessageMutation} textareaRef={textareaRef}
                     />
                 </div>
             </div>

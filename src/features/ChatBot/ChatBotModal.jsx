@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useRef } from "react";
+import { FaAmbulance, FaTimes } from "react-icons/fa"; 
 import VoiceInputModal from "../../components/VoiceInputModal";
 import ChatHeader from "./ChatHeader";
 import ChatInput from "./ChatInput";
@@ -7,7 +8,8 @@ import MessageBubble from "./MessageBubble";
 import { useChatBot } from "./useChatBot";
 
 const ChatBotModal = ({ isOpen, onClose }) => {
-    const { messages, inputText, setInputText, copiedMessageId, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, language, changeLanguage, isEnglish, handleSendMessage, handleCopy, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation } = useChatBot(onClose);
+    const { messages, inputText, setInputText, copiedMessageId, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, language, changeLanguage, isEnglish, handleSendMessage, handleCopy, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation, showEmergencyAlert, closeEmergencyAlert
+    } = useChatBot(onClose);
 
     const messagesEndRef = useRef(null);
     const modalRef = useRef(null);
@@ -24,6 +26,28 @@ const ChatBotModal = ({ isOpen, onClose }) => {
     return (
         <div>
             <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-end justify-end z-50 p-4 ${isFullscreen ? 'items-center justify-center' : ''}`}>
+
+                {showEmergencyAlert && (
+                    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md">
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 shadow-lg animate-pulse">
+                            <FaAmbulance className="h-6 w-6 text-red-600 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                <h4 className="font-bold text-red-800">
+                                    {isEnglish ? "Emergency Situation Detected" : "تم اكتشاف حالة طوارئ"}
+                                </h4>
+                                <p className="text-red-700 text-sm">
+                                    {isEnglish
+                                        ? "Please seek immediate medical attention. This is a potentially life-threatening condition."
+                                        : "يرجى طلب الرعاية الطبية الفورية. هذه حالة قد تهدد الحياة."}
+                                </p>
+                            </div>
+                            <button onClick={closeEmergencyAlert} className="text-red-600 hover:text-red-800">
+                                <FaTimes className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <div ref={modalRef} className={`bg-white dark:bg-gray-800 rounded-xl w-full flex flex-col shadow-xl transition-all duration-300 ${isFullscreen ? 'max-w-4xl h-[90vh]' : 'max-w-md h-[70vh]'}`}>
                     <ChatHeader isEnglish={isEnglish} language={language} changeLanguage={changeLanguage} isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} onClose={onClose} />
 

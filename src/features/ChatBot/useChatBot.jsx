@@ -12,6 +12,7 @@ export const useChatBot = () => {
   const [copiedMessageId, setCopiedMessageId] = useState(null);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showEmergencyAlert, setShowEmergencyAlert] = useState(false);
   const { isEnglish, changeLanguage, language, isArabic } = useLanguage();
 
   const streamHandler = useStreamHandler(setMessages, isArabic);
@@ -53,17 +54,12 @@ export const useChatBot = () => {
     },
     onError: (error) => {
       const errorMessage = isArabic
-        ? `<span style="color:red">خطأ: ${error.message}</span>`
-        : `<span style="color:red">Error: ${error.message}</span>`;
+        ? `<span style="color:red">خطأ : ${error.message}</span>`
+        : `<span style="color:red">Error : ${error.message}</span>`;
 
       setMessages(prev => [
         ...prev,
-        {
-          id: Date.now(),
-          text: errorMessage,
-          sender: "bot",
-          timestamp: new Date().toLocaleTimeString(),
-        }
+        { id: Date.now(), text: errorMessage, sender: "bot", timestamp: new Date().toLocaleTimeString() }
       ]);
     },
   });
@@ -75,18 +71,8 @@ export const useChatBot = () => {
     if (!languageVerification.valid) {
       setMessages(prev => [
         ...prev,
-        {
-          id: Date.now(),
-          text: inputText,
-          sender: "user",
-          timestamp: new Date().toLocaleTimeString(),
-        },
-        {
-          id: Date.now() + 1,
-          text: languageVerification.message,
-          sender: "bot",
-          timestamp: new Date().toLocaleTimeString(),
-        }
+        { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
+        { id: Date.now() + 1, text: languageVerification.message, sender: "bot", timestamp: new Date().toLocaleTimeString() }
       ]);
       setInputText("");
       return;
@@ -113,19 +99,16 @@ export const useChatBot = () => {
 
       setMessages(prev => [
         ...prev,
-        {
-          id: Date.now(),
-          text: inputText,
-          sender: "user",
-          timestamp: new Date().toLocaleTimeString(),
-        },
-        {
-          id: Date.now() + 1,
-          text: emergencyResponse,
-          sender: "bot",
-          timestamp: new Date().toLocaleTimeString(),
-        }
+        { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
+        { id: Date.now() + 1, text: emergencyResponse, sender: "bot", timestamp: new Date().toLocaleTimeString() }
       ]);
+
+      setShowEmergencyAlert(true);
+
+      setTimeout(() => {
+        setShowEmergencyAlert(false);
+      }, 10000);
+
       setInputText("");
       return;
     }
@@ -137,18 +120,9 @@ export const useChatBot = () => {
 
       setMessages(prev => [
         ...prev,
-        {
-          id: Date.now(),
-          text: inputText,
-          sender: "user",
-          timestamp: new Date().toLocaleTimeString(),
-        },
-        {
-          id: Date.now() + 1,
-          text: validationResponse,
-          sender: "bot",
-          timestamp: new Date().toLocaleTimeString(),
-        }
+        { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
+
+        { id: Date.now() + 1, text: validationResponse, sender: "bot", timestamp: new Date().toLocaleTimeString() }
       ]);
       setInputText("");
       return;
@@ -203,23 +177,11 @@ export const useChatBot = () => {
     setIsFullscreen(!isFullscreen);
   }, [isFullscreen]);
 
+  const closeEmergencyAlert = useCallback(() => {
+    setShowEmergencyAlert(false);
+  }, []);
+
   return {
-    messages,
-    inputText,
-    setInputText,
-    copiedMessageId,
-    isVoiceModalOpen,
-    setIsVoiceModalOpen,
-    isFullscreen,
-    setIsFullscreen,
-    language,
-    changeLanguage,
-    isEnglish,
-    handleSendMessage,
-    handleCopy,
-    handleVoiceTextConverted,
-    autoResizeTextarea,
-    toggleFullscreen,
-    sendMessageMutation
+    messages, inputText, setInputText, copiedMessageId, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, setIsFullscreen, showEmergencyAlert, setShowEmergencyAlert, closeEmergencyAlert, language, changeLanguage, isEnglish, handleSendMessage, handleCopy, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation
   };
 };

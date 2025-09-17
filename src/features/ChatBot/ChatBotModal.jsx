@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useRef } from "react";
-import { FaAmbulance, FaTimes } from "react-icons/fa"; 
+import { FaAmbulance, FaTimes } from "react-icons/fa";
 import VoiceInputModal from "../../components/VoiceInputModal";
 import ChatHeader from "./ChatHeader";
 import ChatInput from "./ChatInput";
@@ -72,6 +72,7 @@ const ChatBotModal = ({ isOpen, onClose }) => {
                                 <MessageBubble key={message.id} message={message} isEnglish={isEnglish} copiedMessageId={copiedMessageId} handleCopy={handleCopy} />
                             ))
                         )}
+
                         {sendMessageMutation.isPending && (
                             <div className="flex justify-start">
                                 <div className="max-w-xs bg-gray-100 dark:bg-gray-700 rounded-2xl p-4 rounded-bl-none">

@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import useApiCommunication from "./useApiCommunication";
@@ -9,6 +10,7 @@ const useMedicalAssistant = () => {
   const [response, setResponse] = useState("");
   const responseDivRef = useRef(null);
   const { isEnglish, isArabic } = useLanguage();
+  const queryClient = useQueryClient();
 
   const { detectEmergency } = useEmergencyDetection();
   const { isMedicalQuestion } = useMedicalValidation();
@@ -50,6 +52,13 @@ const useMedicalAssistant = () => {
       setResponse(isEnglish
         ? "Please describe your symptoms."
         : "يرجى وصف الأعراض الخاصة بك.");
+      return;
+    }
+
+    const cachedResponse = queryClient.getQueryData(['medicalResponse', userInput]);
+    if (cachedResponse) {
+      setResponse(cachedResponse);
+      setUserInput("");
       return;
     }
 
@@ -95,8 +104,7 @@ const useMedicalAssistant = () => {
     const inputToSend = userInput;
     setUserInput("");
     sendMessageMutation.mutate(inputToSend);
-
-  }, [userInput, verifyLanguage, detectEmergency, isMedicalQuestion, sendMessageMutation, isEnglish]);
+  }, [userInput, verifyLanguage, detectEmergency, isMedicalQuestion, sendMessageMutation, isEnglish, queryClient]);
 
   return { userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage };
 };

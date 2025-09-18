@@ -110,6 +110,8 @@ const useApiCommunication = (setResponse, responseDivRef) => {
                 : `<span style="color:red">Error: ${error.message}</span>`
             );
         },
+        retry: 1,
+        retryDelay: 1000,
     });
 
     return { sendMessageMutation };

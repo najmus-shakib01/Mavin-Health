@@ -121,7 +121,6 @@ export const useChatBot = () => {
       setMessages(prev => [
         ...prev,
         { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
-
         { id: Date.now() + 1, text: validationResponse, sender: "bot", timestamp: new Date().toLocaleTimeString() }
       ]);
       setInputText("");

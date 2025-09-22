@@ -8,12 +8,14 @@ import { useLanguage } from "../../contexts/LanguageContext";
 const AssistantTab = ({
     userInput, setUserInput, response, responseDivRef, isProcessing,
     handleSendMessage, handleKeyDown, textareaRef, autoResizeTextarea,
-    conversationHistory, startNewConversation }) => {
+    conversationHistory, startNewConversation, lastRequestTime }) => {
 
     const [copied, setCopied] = useState(false);
     const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
     const navigate = useNavigate();
     const { language, isEnglish } = useLanguage();
+
+    const isButtonDisabled = isProcessing || !userInput.trim() || (Date.now() - lastRequestTime < 2000);
 
     const handleCopy = () => {
         navigator.clipboard.writeText(response.replace(/<[^>]+>/g, " ")).then(() => {
@@ -23,6 +25,7 @@ const AssistantTab = ({
     };
 
     const hasSpecialistRecommendation = response && response.includes("Specialist Recommendation");
+    const isRateLimited = response && (response.includes("Too many requests") || response.includes("عدد الطلبات كبير"));
 
     const handleVoiceTextConverted = (text) => {
         setUserInput(prevInput => prevInput + (prevInput ? " " + text : text));
@@ -35,6 +38,17 @@ const AssistantTab = ({
                 textareaRef.current.selectionEnd = textareaRef.current.value.length;
             }
         }, 100);
+    };
+
+    const getButtonText = () => {
+        if (isProcessing) {
+            return isEnglish ? "Processing..." : "جاري المعالجة...";
+        }
+        if (Date.now() - lastRequestTime < 2000) {
+            const secondsLeft = Math.ceil((2000 - (Date.now() - lastRequestTime)) / 1000);
+            return isEnglish ? `Wait ${secondsLeft}s` : `انتظر ${secondsLeft}ث`;
+        }
+        return isEnglish ? "Analyze" : "تحليل";
     };
 
     return (
@@ -114,10 +128,12 @@ const AssistantTab = ({
                             <div dangerouslySetInnerHTML={{ __html: response }} />
                         </div>
 
-                        <button onClick={handleCopy} className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-gray-300 rounded-lg shadow-sm text-gray-700 text-xs hover:bg-gray-400 transition">
-                            <FaCopy className="w-3 h-3" />
-                            {copied ? (isEnglish ? "Copied!" : "تم النسخ!") : (isEnglish ? "Copy" : "نسخ")}
-                        </button>
+                        {!isRateLimited && (
+                            <button onClick={handleCopy} className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-gray-300 rounded-lg shadow-sm text-gray-700 text-xs hover:bg-gray-400 transition">
+                                <FaCopy className="w-3 h-3" />
+                                {copied ? (isEnglish ? "Copied!" : "تم النسخ!") : (isEnglish ? "Copy" : "نسخ")}
+                            </button>
+                        )}
 
                         {copied && (
                             <span className="absolute top-[-1.5rem] right-0 bg-green-200 text-green-900 text-xs px-2 py-1 rounded shadow-md animate-fade-in">
@@ -156,16 +172,24 @@ const AssistantTab = ({
                 </div>
             )}
 
+            {isRateLimited && (
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
+                    <p className="text-yellow-700 text-sm text-center">
+                        {isEnglish ? "⏳ Please wait a moment before sending another request" : "⏳ يرجى الانتظار لحظة قبل إرسال طلب آخر"}
+                    </p>
+                </div>
+            )}
+
             <div className="mt-5 flex flex-col md:flex-row gap-2 items-stretch md:items-end">
                 <div className="flex-1 relative">
                     <textarea ref={textareaRef} id="userInput" placeholder={isEnglish ? "Describe your health issue in detail to get a proper answer..." : "صف مشكلتك الصحية بالتفصيل للحصول على إجابة مناسبة..."} rows={1} autoFocus className={`w-full text-base border border-gray-300 dark:bg-gray-800 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none leading-relaxed max-h-40 overflow-y-auto pr-12 ${isEnglish ? "text-left" : "text-right"}`} dir={isEnglish ? "ltr" : "rtl"} value={userInput} onChange={(e) => setUserInput(e.target.value)} onInput={autoResizeTextarea} onKeyDown={handleKeyDown} />
 
-                    <button onClick={() => setIsVoiceModalOpen(true)} className="absolute right-3 bottom-3 p-2 bg-gray-300 rounded-full text-gray-500" title={isEnglish ? "Voice Input" : "الإدخال الصوتي"}>
+                    <button onClick={() => setIsVoiceModalOpen(true)} disabled={isButtonDisabled} className="absolute right-3 bottom-3 p-2 bg-gray-300 rounded-full text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed" title={isEnglish ? "Voice Input" : "الإدخال الصوتي"}>
                         <FaMicrophone className="h-5 w-5" />
                     </button>
                 </div>
 
-                <button onClick={handleSendMessage} id="sendButton" disabled={isProcessing || !userInput.trim()} className="w-full md:w-auto px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                <button onClick={handleSendMessage} id="sendButton" disabled={isButtonDisabled} className="w-full md:w-auto px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                     {isProcessing ? (
                         <div className="flex items-center gap-2">
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -174,7 +198,7 @@ const AssistantTab = ({
                     ) : (
                         <>
                             <FaPaperPlane className="h-4 w-4" />
-                            {isEnglish ? "Analyze" : "تحليل"}
+                            {getButtonText()}
                         </>
                     )}
                 </button>

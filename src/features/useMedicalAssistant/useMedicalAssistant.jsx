@@ -9,6 +9,7 @@ const useMedicalAssistant = () => {
   const [response, setResponse] = useState("");
   const [conversationHistory, setConversationHistory] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [lastRequestTime, setLastRequestTime] = useState(0);
   const responseDivRef = useRef(null);
   const { isEnglish, isArabic } = useLanguage();
 
@@ -57,9 +58,23 @@ const useMedicalAssistant = () => {
   }, [isEnglish, isArabic]);
 
   const handleSendMessage = useCallback(async () => {
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTime;
+    
+    // Minimum 2 seconds between requests to prevent rate limiting
+    if (timeSinceLastRequest < 2000) {
+      const waitMessage = isEnglish
+        ? `<span style='color:orange'>⏳ Please wait ${Math.ceil((2000 - timeSinceLastRequest) / 1000)} seconds before sending another request.</span>`
+        : `<span style='color:orange'>⏳ يرجى الانتظار ${Math.ceil((2000 - timeSinceLastRequest) / 1000)} ثوانٍ قبل إرسال طلب آخر.</span>`;
+      
+      setResponse(waitMessage);
+      return;
+    }
+
     if (!userInput.trim() || isProcessing) return;
 
     setIsProcessing(true);
+    setLastRequestTime(now);
     const userMessage = userInput.trim();
     setUserInput("");
 
@@ -144,16 +159,16 @@ const useMedicalAssistant = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [userInput, isProcessing, verifyLanguage, detectEmergency, isMedicalQuestion, sendMessageMutation, isEnglish]);
+  }, [userInput, isProcessing, verifyLanguage, detectEmergency, isMedicalQuestion, sendMessageMutation, isEnglish, lastRequestTime]);
 
   const startNewConversation = useCallback(() => {
     setConversationHistory([]);
     setResponse("");
     setUserInput("");
+    setLastRequestTime(0);
   }, []);
 
-  return { userInput, setUserInput, response, responseDivRef, isProcessing, handleSendMessage, conversationHistory, startNewConversation
-  };
+  return { userInput, setUserInput, response, responseDivRef, isProcessing, handleSendMessage, conversationHistory, startNewConversation, lastRequestTime };
 };
 
 export default useMedicalAssistant;

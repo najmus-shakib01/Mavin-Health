@@ -4,70 +4,44 @@ import { apiKey, baseUrl } from "../../constants/env.constants";
 import { cornerCases } from "../../constants/env.cornercase";
 import { useLanguage } from "../../contexts/LanguageContext";
 
-const useApiCommunication = (setResponse, responseDivRef, conversationHistory, setConversationHistory) => {
+const useApiCommunication = (setResponse, responseDivRef) => {
     const { language } = useLanguage();
 
     const sendMessageMutation = useMutation({
-        mutationFn: async (userMessage, { retry = 0 } = {}) => {
-            try {
-                const languageSpecificPrompt = language === 'english'
-                    ? `${cornerCases}\n\nPlease respond in English only and include SPECIALTY_RECOMMENDATION : [specialty name] in your response.`
-                    : `${cornerCases}\n\nيرجى الرد باللغة العربية فقط وتضمين SPECIALTY_RECOMMENDATION : [specialty name] في ردك.`;
+        mutationFn: async (inputText) => {
+            setResponse(language === 'english'
+                ? "🔄 Analyzing Symptoms With Medical Database..."
+                : "🔄 جاري تحليل الأعراض مع قاعدة البيانات الطبية...");
 
-                const messages = [
-                    { role: "system", content: languageSpecificPrompt },
-                    ...conversationHistory.map(msg => ({
-                        role: msg.sender === "user" ? "user" : "assistant",
-                        content: msg.text
-                    })),
-                    { role: "user", content: userMessage }
-                ];
+            const languageSpecificPrompt = language === 'english'
+                ? `${cornerCases}\n\nPlease respond in English only and include SPECIALTY_RECOMMENDATION : [specialty name] in your response.`
+                : `${cornerCases}\n\nيرجى الرد باللغة العربية فقط وتضمين SPECIALTY_RECOMMENDATION : [specialty name] في ردك.`;
 
-                const response = await fetch(`${baseUrl}/completions`, {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${apiKey}`,
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        model: "deepseek/deepseek-r1:free",
-                        messages: messages,
-                        temperature: 0,
-                        stream: true,
-                        max_tokens: 1000,
-                    }),
-                });
+            const response = await fetch(`${baseUrl}/completions`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    model: "deepseek/deepseek-r1:free",
+                    messages: [
+                        { role: "system", content: languageSpecificPrompt },
+                        { role: "user", content: inputText },
+                    ],
+                    temperature: 0,
+                    stream: true,
+                }),
+            });
 
-                if (!response.ok) {
-                    let errorMessage = `HTTP error! status: ${response.status}`;
-
-                    if (response.status === 429) {
-                        errorMessage = "Too Many Requests - Rate limit exceeded";
-                    } else {
-                        try {
-                            const errorData = await response.json();
-                            errorMessage = errorData.error?.message || errorMessage;
-                        } catch {
-                            // If JSON parsing fails, use default message
-                        }
-                    }
-
-                    throw new Error(errorMessage);
-                }
-
-                return {
-                    stream: response.body,
-                    language: language,
-                    userMessage: userMessage
-                };
-            } catch (error) {
-                if (error.message.includes('429') && retry < 2) {
-                    const waitTime = 2000 * (retry + 1);
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                    return sendMessageMutation.mutateAsync(userMessage, { retry: retry + 1 });
-                }
-                throw error;
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            return {
+                stream: response.body,
+                language: language
+            };
         },
         onSuccess: (data) => {
             const { stream, language } = data;
@@ -97,13 +71,12 @@ const useApiCommunication = (setResponse, responseDivRef, conversationHistory, s
 
                                     if (token) {
                                         fullResponse += token;
-                                        if (fullResponse.length % 5 === 0 || token.includes("\n")) {
+                                        if (fullResponse.length % 10 === 0 || token.includes("\n")) {
                                             setResponse(marked.parse(fullResponse));
                                         }
                                     }
                                 } catch (e) {
-                                    console.warn("Non-JSON line:", line);
-                                    console.error(e);
+                                    console.error("Error parsing JSON:", e, "Line:", line);
                                 }
                             }
                         }
@@ -118,28 +91,11 @@ const useApiCommunication = (setResponse, responseDivRef, conversationHistory, s
 
                     setResponse(finalResponse);
 
-                    const newAiMessage = {
-                        sender: "assistant",
-                        text: finalResponse,
-                        timestamp: new Date().toLocaleTimeString()
-                    };
-
-                    setConversationHistory(prev => [...prev, newAiMessage]);
-
                 } catch (error) {
-                    const errorMessage = isArabic
-                        ? `<span style="color: red">خطأ في معالجة الاستجابة: ${error.message}</span>`
-                        : `<span style="color: red">Response processing error: ${error.message}</span>`;
-
-                    setResponse(errorMessage);
-
-                    const newErrorMessage = {
-                        sender: "assistant",
-                        text: errorMessage,
-                        timestamp: new Date().toLocaleTimeString()
-                    };
-
-                    setConversationHistory(prev => [...prev, newErrorMessage]);
+                    setResponse(isArabic
+                        ? `<span style="color: red">خطأ في البث: ${error.message}</span>`
+                        : `<span style="color: red">Stream Error: ${error.message}</span>`
+                    );
                 } finally {
                     reader.releaseLock();
                 }
@@ -149,31 +105,10 @@ const useApiCommunication = (setResponse, responseDivRef, conversationHistory, s
         },
         onError: (error) => {
             const isArabic = language === 'arabic';
-
-            let errorMessage;
-            if (error.message.includes('429') || error.message.includes('Too Many Requests') || error.message.includes('Rate limit')) {
-                errorMessage = isArabic
-                    ? "<span style='color:orange'>⚠️ عدد الطلبات كبير جدًا. يرجى الانتظار بضع ثوانٍ ثم المحاولة مرة أخرى.</span>"
-                    : "<span style='color:orange'>⚠️ Too many requests. Please wait a few seconds and try again.</span>";
-            } else if (error.message.includes('Provider returned error')) {
-                errorMessage = isArabic
-                    ? "<span style='color:red'>⚠️ مزود الخدمة عاد بخطأ. قد يكون الخادم مشغولاً.</span>"
-                    : "<span style='color:red'>⚠️ Provider returned an error. The server may be busy.</span>";
-            } else {
-                errorMessage = isArabic
-                    ? `<span style="color:red">خطأ: ${error.message}</span>`
-                    : `<span style="color:red">Error: ${error.message}</span>`;
-            }
-
-            setResponse(errorMessage);
-
-            const newErrorMessage = {
-                sender: "assistant",
-                text: errorMessage,
-                timestamp: new Date().toLocaleTimeString()
-            };
-
-            setConversationHistory(prev => [...prev, newErrorMessage]);
+            setResponse(isArabic
+                ? `<span style="color:red">خطأ: ${error.message}</span>`
+                : `<span style="color:red">Error: ${error.message}</span>`
+            );
         }
     });
 

@@ -2,13 +2,13 @@
 import { useState } from "react";
 import { FaAmbulance, FaCopy, FaLanguage, FaMicrophone, FaPaperPlane, FaStethoscope } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import Error from "../../components/Error";
-import Loader from "../../components/Loader";
 import VoiceInputModal from "../../components/VoiceInputModal";
 import { useLanguage } from "../../contexts/LanguageContext";
 
 const AssistantTab = ({
-    userInput, setUserInput, response, responseDivRef, sendMessageMutation, handleSendMessage, handleKeyDown, textareaRef, autoResizeTextarea }) => {
+    userInput, setUserInput, response, responseDivRef, isProcessing,
+    handleSendMessage, handleKeyDown, textareaRef, autoResizeTextarea,
+    conversationHistory, startNewConversation }) => {
 
     const [copied, setCopied] = useState(false);
     const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -40,11 +40,29 @@ const AssistantTab = ({
     return (
         <div>
             <div ref={responseDivRef} id="response" className="border border-gray-200 dark:bg-gray-900 dark:border-gray-700 rounded-xl p-5 min-h-[300px] max-h-[400px] overflow-y-auto bg-gray-50">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-semibold text-gray-700 dark:text-gray-300">
+                        {isEnglish ? "Medical Consultation" : "استشارة طبية"}
+                    </h3>
+                    {conversationHistory.length > 0 && (
+                        <button onClick={startNewConversation} className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                            {isEnglish ? "New Chat" : "محادثة جديدة"}
+                        </button>
+                    )}
+                </div>
 
-                {!response && !sendMessageMutation.isPending && (
+                {conversationHistory.length > 0 && (
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="text-xs text-blue-700 dark:text-blue-300">
+                            {isEnglish ? `Conversation history: ${conversationHistory.length} messages` : `تاريخ المحادثة: ${conversationHistory.length} رسائل`}
+                        </div>
+                    </div>
+                )}
+
+                {!response && !isProcessing && conversationHistory.length === 0 && (
                     <div className="h-full flex flex-col items-center justify-center text-center text-gray-500">
                         <FaStethoscope className="w-12 h-12 text-gray-300 mb-3" />
-                        <h3 className="font-medium text-lg mb-1 pr-5">
+                        <h3 className="font-medium text-lg mb-1">
                             {isEnglish ? "Medical Symptom Checker" : "مدقق الأعراض الطبية"}
                         </h3>
                         <p className="text-sm max-w-md">
@@ -73,14 +91,21 @@ const AssistantTab = ({
                     </div>
                 )}
 
-                {sendMessageMutation.isPending && (
+                {isProcessing && (
                     <div className="flex items-center justify-center h-full">
-                        <div className="text-center"><Loader /></div>
+                        <div className="text-center">
+                            <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/20 px-4 py-2 rounded-full">
+                                <div className="flex space-x-1">
+                                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                                </div>
+                                <span className="text-blue-700 dark:text-blue-300 text-sm">
+                                    {isEnglish ? "Analyzing with medical database..." : "جاري التحليل مع قاعدة البيانات الطبية..."}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                )}
-
-                {sendMessageMutation.isError && (
-                    <Error message={sendMessageMutation.error.message} onRetry={handleSendMessage} />
                 )}
 
                 {response && (
@@ -140,9 +165,12 @@ const AssistantTab = ({
                     </button>
                 </div>
 
-                <button onClick={handleSendMessage} id="sendButton" disabled={sendMessageMutation.isPending || !userInput.trim()} className="w-full md:w-auto px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                    {sendMessageMutation.isPending ? (
-                        <Loader className="h-4 w-4" />
+                <button onClick={handleSendMessage} id="sendButton" disabled={isProcessing || !userInput.trim()} className="w-full md:w-auto px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                    {isProcessing ? (
+                        <div className="flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            {isEnglish ? "Processing..." : "جاري المعالجة..."}
+                        </div>
                     ) : (
                         <>
                             <FaPaperPlane className="h-4 w-4" />
@@ -154,7 +182,7 @@ const AssistantTab = ({
 
             <div className="mt-4 flex items-center justify-between">
                 <p className="text-xs text-gray-500">
-                    {isEnglish ? "This assistant only responds to medical questions. For emergencies, contact a doctor immediately." : "هذا المساعد responds للأسئلة الطبية فقط. للحالات الطارئة، اتصل بالطبيب فورًا."}
+                    {isEnglish ? "This assistant only responds to medical questions. For emergencies, contact a doctor immediately." : "هذا المساعد يجيب على الأسئلة الطبية فقط. للحالات الطارئة، اتصل بالطبيب فورًا."}
                 </p>
                 <div className="flex items-center text-xs text-gray-500">
                     <span className="inline-flex items-center">

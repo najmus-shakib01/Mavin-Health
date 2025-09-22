@@ -4,18 +4,23 @@ import { apiKey, baseUrl } from "../../constants/env.constants";
 import { cornerCases } from "../../constants/env.cornercase";
 import { useLanguage } from "../../contexts/LanguageContext";
 
-const useApiCommunication = (setResponse, responseDivRef) => {
+const useApiCommunication = (setResponse, responseDivRef, conversationHistory, setConversationHistory) => {
     const { language } = useLanguage();
 
     const sendMessageMutation = useMutation({
-        mutationFn: async (inputText) => {
-            setResponse(language === 'english'
-                ? "🔄 Analyzing Symptoms With Medical Database..."
-                : "🔄 جاري تحليل الأعراض مع قاعدة البيانات الطبية...");
-
+        mutationFn: async (userMessage) => {
             const languageSpecificPrompt = language === 'english'
                 ? `${cornerCases}\n\nPlease respond in English only and include SPECIALTY_RECOMMENDATION : [specialty name] in your response.`
                 : `${cornerCases}\n\nيرجى الرد باللغة العربية فقط وتضمين SPECIALTY_RECOMMENDATION : [specialty name] في ردك.`;
+
+            const messages = [
+                { role: "system", content: languageSpecificPrompt },
+                ...conversationHistory.map(msg => ({
+                    role: msg.sender === "user" ? "user" : "assistant",
+                    content: msg.text
+                })),
+                { role: "user", content: userMessage }
+            ];
 
             const response = await fetch(`${baseUrl}/completions`, {
                 method: "POST",
@@ -25,22 +30,22 @@ const useApiCommunication = (setResponse, responseDivRef) => {
                 },
                 body: JSON.stringify({
                     model: "deepseek/deepseek-r1:free",
-                    messages: [
-                        { role: "system", content: languageSpecificPrompt },
-                        { role: "user", content: inputText },
-                    ],
+                    messages: messages,
                     temperature: 0,
                     stream: true,
+                    max_tokens: 1000,
                 }),
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
             }
 
             return {
                 stream: response.body,
-                language: language
+                language: language,
+                userMessage: userMessage
             };
         },
         onSuccess: (data) => {
@@ -71,12 +76,13 @@ const useApiCommunication = (setResponse, responseDivRef) => {
 
                                     if (token) {
                                         fullResponse += token;
-                                        if (fullResponse.length % 10 === 0 || token.includes("\n")) {
+                                        if (fullResponse.length % 5 === 0 || token.includes("\n")) {
                                             setResponse(marked.parse(fullResponse));
                                         }
                                     }
                                 } catch (e) {
-                                    console.error("Error parsing JSON:", e, "Line:", line);
+                                    console.warn("Non-JSON line:", line);
+                                    console.error(e);
                                 }
                             }
                         }
@@ -91,11 +97,28 @@ const useApiCommunication = (setResponse, responseDivRef) => {
 
                     setResponse(finalResponse);
 
+                    const newAiMessage = { 
+                        sender: "assistant", 
+                        text: finalResponse,
+                        timestamp: new Date().toLocaleTimeString()
+                    };
+                    
+                    setConversationHistory(prev => [...prev, newAiMessage]);
+
                 } catch (error) {
-                    setResponse(isArabic
+                    const errorMessage = isArabic
                         ? `<span style="color: red">خطأ في البث: ${error.message}</span>`
-                        : `<span style="color: red">Stream Error: ${error.message}</span>`
-                    );
+                        : `<span style="color: red">Stream Error: ${error.message}</span>`;
+                    
+                    setResponse(errorMessage);
+                    
+                    const newErrorMessage = { 
+                        sender: "assistant", 
+                        text: errorMessage,
+                        timestamp: new Date().toLocaleTimeString()
+                    };
+                    
+                    setConversationHistory(prev => [...prev, newErrorMessage]);
                 } finally {
                     reader.releaseLock();
                 }
@@ -105,10 +128,19 @@ const useApiCommunication = (setResponse, responseDivRef) => {
         },
         onError: (error) => {
             const isArabic = language === 'arabic';
-            setResponse(isArabic
+            const errorMessage = isArabic
                 ? `<span style="color:red">خطأ: ${error.message}</span>`
-                : `<span style="color:red">Error: ${error.message}</span>`
-            );
+                : `<span style="color:red">Error: ${error.message}</span>`;
+            
+            setResponse(errorMessage);
+
+            const newErrorMessage = { 
+                sender: "assistant", 
+                text: errorMessage,
+                timestamp: new Date().toLocaleTimeString()
+            };
+            
+            setConversationHistory(prev => [...prev, newErrorMessage]);
         }
     });
 

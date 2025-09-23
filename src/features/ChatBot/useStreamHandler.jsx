@@ -1,13 +1,12 @@
 import { marked } from "marked";
 
-export const useStreamHandler = (setMessages) => {
+export const useStreamHandler = (setMessages, isArabic) => {
   const processStream = async (data) => {
-    const { stream, language } = data;
+    const { stream } = data;
     const reader = stream.getReader();
     const decoder = new TextDecoder();
     let fullResponse = "";
     let buffer = "";
-    const isArabic = language === 'arabic';
 
     try {
       while (true) {
@@ -28,25 +27,35 @@ export const useStreamHandler = (setMessages) => {
 
               if (token) {
                 fullResponse += token;
-                if (fullResponse.length % 10 === 0 || token.includes("\n")) {
-                  setMessages(prev => {
-                    const lastMessage = prev[prev.length - 1];
-                    if (lastMessage && lastMessage.sender === "bot" && lastMessage.isStreaming) {
-                      return [
-                        ...prev.slice(0, -1),
-                        {
-                          ...lastMessage,
-                          text: marked.parse(fullResponse),
-                          isStreaming: true
-                        }
-                      ];
-                    }
-                    return prev;
-                  });
-                }
+
+                setMessages(prev => {
+                  const lastMessage = prev[prev.length - 1];
+
+                  if (lastMessage && lastMessage.sender === "bot" && lastMessage.isStreaming) {
+                    return [
+                      ...prev.slice(0, -1),
+                      {
+                        ...lastMessage,
+                        text: marked.parse(fullResponse),
+                        isStreaming: true
+                      }
+                    ];
+                  } else {
+                    return [
+                      ...prev,
+                      {
+                        id: Date.now(),
+                        text: marked.parse(fullResponse),
+                        sender: "bot",
+                        isStreaming: true,
+                        timestamp: new Date().toLocaleTimeString()
+                      }
+                    ];
+                  }
+                });
               }
             } catch (e) {
-              console.error("Error parsing JSON:", e, "Line:", line);
+              console.warn("JSON parsing error:", e, "Line:", line);
             }
           }
         }
@@ -57,6 +66,7 @@ export const useStreamHandler = (setMessages) => {
 
       setMessages(prev => {
         const lastMessage = prev[prev.length - 1];
+
         if (lastMessage && lastMessage.sender === "bot" && lastMessage.isStreaming) {
           return [
             ...prev.slice(0, -1),
@@ -67,17 +77,29 @@ export const useStreamHandler = (setMessages) => {
               timestamp: new Date().toLocaleTimeString()
             }
           ];
+        } else {
+          return [
+            ...prev,
+            {
+              id: Date.now(),
+              text: finalResponse,
+              sender: "bot",
+              isStreaming: false,
+              timestamp: new Date().toLocaleTimeString()
+            }
+          ];
         }
-        return prev;
       });
 
     } catch (error) {
+      console.error("Stream processing error:", error);
+
       const errorMessage = isArabic
-        ? `<span style="color: red">خطأ في البث: ${error.message}</span>`
+        ? `<span style="color: red">خطأ في معالجة الاستجابة: ${error.message}</span>`
         : `<span style="color: red">Stream Error: ${error.message}</span>`;
 
       setMessages(prev => [
-        ...prev,
+        ...prev.filter(msg => !msg.isStreaming),
         {
           id: Date.now(),
           text: errorMessage,

@@ -2,149 +2,171 @@ import { useCallback } from "react";
 
 const useMedicalValidation = () => {
     const isMedicalQuestion = useCallback((text) => {
+        if (!text || text.trim().length < 3) return false;
+
         const lowerText = text.toLowerCase().trim();
-        
-        // non medical key word
-        const nonMedicalPatterns = [
-            /hello|hi|hey|how are you|what's up/i,
-            /thanks|thank you|appreciate/i,
-            /weather|forecast|temperature/i,
-            /sports|game|football|cricket|player/i,
-            /movie|film|actor|actress|entertainment/i,
-            /politics|government|election|minister/i,
-            /joke|funny|humor|comedy/i,
-            /food|recipe|cooking|restaurant|cuisine/i,
-            /travel|tourist|vacation|holiday|destination/i,
-            /music|song|singer|band|concert/i,
-            /book|novel|author|literature|reading/i,
-            /job|career|employment|interview|salary/i,
-            /education|school|college|university|exam/i,
-            /price|cost|money|financial|bank|investment/i,
-            /news|headline|current affairs|update/i,
-            /time|date|day|week|month|year/i,
-            /age|old|young|birthday|anniversary/i,
-            /hobby|interest|passion|leisure|activity/i,
-            /family|friend|relationship|marriage|wedding/i,
-            /computer|tech|technology|software|app|website/i,
-            /animal|pet|dog|cat|bird|wildlife/i,
-            /car|vehicle|bike|transportation|driving/i,
-            /shopping|buy|purchase|product|item/i,
-            /history|past|ancient|culture|heritage/i,
-            /religion|god|prayer|spiritual|faith/i,
-            /art|painting|drawing|design|creative/i,
-            /fashion|clothing|dress|outfit|style/i,
-            /business|company|enterprise|startup|market/i,
-            
-            // Arabic non-medical patterns
-            /مرحبا|اهلا|السلام|كيف حالك/i,
-            /شكرا|متشكر|مقدر/i,
-            /طقس|جو|حرارة|مناخ/i,
-            /رياضة|كرة|مباراة|لاعب/i,
-            /فيلم|مسلسل|ممثل|ممثلة|ترفيه/i,
-            /سياسة|حكومة|انتخابات|وزير/i,
-            /نكتة|ضحك|فكاهة|كوميديا/i,
-            /طعام|وصفة|طبخ|مطعم|مطبخ/i,
-            /سفر|سياحة|عطلة|وجهة/i,
-            /موسيقى|اغنية|مغني|فرقة|حفلة/i,
-            /كتاب|رواية|كاتب|ادب|قراءة/i,
-            /وظيفة|عمل|توظيف|مقابلة|راتب/i,
-            /تعليم|مدرسة|جامعة|كلية|امتحان/i,
-            /سعر|تكلفة|مال|مادي|بنك|استثمار/i,
-            /اخبار|عنوان|شؤون|تحديث/i,
-            /وقت|تاريخ|يوم|اسبوع|شهر|سنة/i,
-            /عمر|كبير|صغير|عيد ميلاد|ذكرى/i,
-            /هواية|اهتمام|شغف|ترفيه|نشاط/i,
-            /عائلة|صديق|علاقة|زواج|عرس/i,
-            /كمبيوتر|تكنولوجيا|برنامج|تطبيق|موقع/i,
-            /حيوان|اليف|كلب|قطة|طير|حياة برية/i,
-            /سيارة|مركبة|دراجة|مواصلات|قيادة/i,
-            /تسوق|شراء|منتج|سلعة/i,
-            /تاريخ|ماضي|قديم|ثقافة|تراث/i,
-            /دين|الله|صلاة|روحاني|ايمان/i,
-            /فن|رسم|تصميم|ابداع/i,
-            /موضة|ملابس|فساتين|ستايل/i,
-            /عمل|شركة|مشروع|سوق/i
-        ];
 
-        // non medical question false return
-        if (nonMedicalPatterns.some(pattern => pattern.test(lowerText))) {
-            return false;
-        }
+        const cleanedText = lowerText
+            .replace(/\b(hi|hello|hey|greetings|good morning|good afternoon|good evening)\b/g, '')
+            .replace(/\b(مرحبا|السلام عليكم|اهلا|مساء الخير|صباح الخير)\b/g, '')
+            .trim();
 
-        // Medical context patterns
+        if (cleanedText.length < 5) return false;
+
         const medicalPatterns = [
-            /(pain|ache|hurt|discomfort|sore|tender)/i,
-            /(symptom|sign|problem|issue|condition|disorder)/i,
-            /(fever|cough|headache|nausea|vomit|dizziness)/i,
+            // English Medical Keywords 
+            /(pain|ache|hurt|sore|discomfort|tender)/i,
+            /(symptom|sign|problem|issue|condition|complaint)/i,
+            /(fever|temperature|hot|cold|chill)/i,
+            /(cough|sneeze|congestion|runny nose|stuffy nose)/i,
+            /(headache|migraine|head pain)/i,
+            /(nausea|vomit|throw up|sick to stomach)/i,
             /(doctor|hospital|clinic|medical|healthcare|physician)/i,
-            /(treatment|medicine|drug|medication|pill|prescription)/i,
-            /(disease|illness|infection|sickness|ailment|syndrome)/i,
-            /(toenail|nail|finger|foot|hand|limb|joint)/i,
-            /(skin|rash|redness|swelling|itch|burn|wound)/i,
-            /(heart|chest|lung|breath|respiratory|cardiac)/i,
-            /(stomach|abdominal|digest|bowel|intestine|gut)/i,
-            /(eye|vision|see|look|retina|pupil|glaucoma)/i,
-            /(ear|hear|sound|noise|hearing|tinnitus|earache)/i,
-            /(nose|smell|sneeze|sinus|nasal|rhinitis)/i,
-            /(throat|swallow|voice|larynx|tonsil|hoarse)/i,
-            /(bone|joint|muscle|back|spine|skeletal|fracture)/i,
-            /(blood|bleed|vein|artery|clot|anemia|hemoglobin)/i,
-            /(brain|nerve|mental|mind|neurological|psychiatric)/i,
-            /(pregnant|baby|birth|period|menstrual|ovulation)/i,
-            /(allergy|react|sensitive|histamine|anaphylaxis)/i,
-            /(diabetes|sugar|blood glucose|insulin|hypoglycemia)/i,
-            /(pressure|hypertension|bp|blood pressure|cardiovascular)/i,
-            /(cancer|tumor|growth|malignant|benign|oncology)/i,
-            /(injury|trauma|accident|fracture|sprain|bruise)/i,
-            /(sleep|insomnia|fatigue|tired|exhausted|energy)/i,
-            /(weight|diet|nutrition|obese|overweight|bmi)/i,
-            /(anxiety|stress|depression|mood|mental health)/i,
-            /(vaccine|immunization|shot|injection|needle)/i,
+            /(treatment|medicine|drug|medication|pill|tablet)/i,
+            /(disease|illness|sickness|infection|disorder|syndrome)/i,
+            /(skin|rash|redness|itching|swelling|inflammation)/i,
+            /(heart|chest|lung|breath|breathe|respiratory)/i,
+            /(stomach|abdominal|belly|digest|indigestion)/i,
+            /(eye|vision|see|look|blur|red eye)/i,
+            /(ear|hear|sound|noise|ringing|earache)/i,
+            /(nose|smell|sneeze|nasal|sinus)/i,
+            /(throat|swallow|voice|hoarse|sore throat)/i,
+            /(bone|joint|muscle|back|neck|shoulder|knee)/i,
+            /(blood|bleed|vein|artery|anemia|clot)/i,
+            /(brain|nerve|mental|mind|anxiety|depression)/i,
+            /(pregnant|baby|birth|period|menstrual|pregnancy)/i,
+            /(allergy|react|sensitive|sneezing|itching)/i,
+            /(diabetes|sugar|blood glucose|insulin)/i,
+            /(pressure|hypertension|bp|blood pressure)/i,
+            /(cancer|tumor|growth|lump|malignant)/i,
+            /(toenail|nail|finger|foot|hand|arm|leg)/i,
+            /(inflammation|infection|bacterial|viral|germ)/i,
+            /(dizziness|vertigo|faint|lightheaded)/i,
+            /(diarrhea|constipation|bowel|stool|poop)/i,
+            /(tired|fatigue|weak|exhausted|lethargic)/i,
+            /(sleep|insomnia|awake|night|dream)/i,
+            /(weight|loss|gain|obese|overweight|diet)/i,
+            /(urine|bladder|kidney|pee|urinary)/i,
+            /(allergy|sneezing|runny nose|itchy eyes)/i,
+            /(vaccine|immunization|shot|injection)/i,
             /(test|scan|x-ray|mri|ultrasound|diagnosis)/i,
-            /(surgery|operation|procedure|anesthesia|stitches)/i,
-            /(kidney|liver|organ|transplant|dialysis|hepatic)/i,
-            /(thyroid|hormone|endocrine|gland|metabolism)/i,
-            /(head|neck|shoulder|elbow|wrist|hip|knee|ankle)/i,
+            /(prescription|dosage|mg|milligram)/i,
+            /(emergency|urgent|911|ambulance|er)/i,
 
-            // Arabic Patterns 
-            /(ألم|وجع|مؤلم|آلام|يتألم)/i,
-            /(عرض|أعراض|علامة|مشكلة|حالة|اضطراب)/i,
-            /(حمى|سخونة|حرارة|سعال|كحة|صداع|غثيان|قيء|دوار)/i,
-            /(طبيب|مستشفى|عيادة|طبي|صحة|ممرض|جراح)/i,
-            /(علاج|دواء|دواء|حبة|وصفة|علاجي)/i,
-            /(مرض|اعتلال|عدوى|مرضي|متلازمة|علة)/i,
-            /(ظفر|إصبع|قدم|يد|طرف|مفصل)/i,
-            /(جلد|طفح|احمرار|تورم|حكة|حرق|جرح)/i,
-            /(قلب|صدر|تنفس|رئة|جهاز تنفسي|قلبي)/i,
-            /(معدة|بطن|هضم|أمعاء|قولون|مغص)/i,
-            /(عين|نظر|رؤية|شبكية|بؤبؤ|زرق)/i,
-            /(أذن|سمع|صوت|طنين|ألم أذن|سماعي)/i,
-            /(أنف|شم|عطس|جيوب|أنفي|التهاب أنف)/i,
-            /(حلق|بلع|صوت|حنجرة|لوز|بحة)/i,
-            /(عظم|مفصل|عضلة|ظهر|عمود فقري|هيكلي|كسر)/i,
-            /(دم|نزيف|وريد|شريان|جلطة|فقر دم|هيموجلوبين)/i,
-            /(دماغ|عصب|نفسي|عقلي| عصبي|طب نفسي)/i,
-            /(حمل|طفل|ولادة|دورة|طمث|تبويض)/i,
-            /(حساسية|تفاعل|حساس|هيستامين|صدمة تحسسية)/i,
-            /(سكري|سكر|جلوكوز|أنسولين|هبوط سكر)/i,
-            /(ضغط|ضغط دم|ضغط مرتفع|قلب وعائي)/i,
-            /(سرطان|ورم|نمو|خبيث|حميد|أورام)/i,
-            /(إصابة|رضح|حادث|كسر|التواء|كدمة)/i,
-            /(نوم|أرق|تعب|إرهاق|طاقة|خمول)/i,
-            /(وزن|حمية|تغذية|سمنة|زيادة وزن|مؤشر كتلة)/i,
-            /(قلق|توتر|اكتئاب|مزاج|صحة نفسية)/i,
-            /(لقاح|تطعيم|حقنة|إبرة|تحصين)/i,
-            /(فحص|اشعة|أشعة|رنين|موجات|تشخيص)/i,
-            /(جراحة|عملية| تخدير|غرز|عملية جراحية)/i,
-            /(كلى|كبد|عضو|زرع|غسيل كلوي|كبدي)/i,
-            /(غدة|هرمون|غدد صماء|ميتابوليزم)/i,
-            /(رأس|رقبة|كتف|كوع|رسغ|ورك|ركبة|كاحل)/i
+            // Arabic Medical Keywords 
+            /(ألم|وجع|مؤلم|مؤلمة|آلام)/i,
+            /(حمى|سخونة|حرارة|ارتفاع حرارة)/i,
+            /(صداع|رأس|مخ|دماغ|شقيقة)/i,
+            /(سعال|كحة|بلغم|سعال جاف)/i,
+            /(غثيان|قيء|ترجيع|استفراغ)/i,
+            /(طبيب|مستشفى|عيادة|مستوصف|صيدلية)/i,
+            /(علاج|دواء|طب|دواء|حبوب)/i,
+            /(مرض|اعتلال|عدوى|مرضي|سقم)/i,
+            /(جلد|طفح|احمرار|حكة|تورم)/i,
+            /(قلب|صدر|تنفس|رئة|نفس)/i,
+            /(معدة|بطن|هضم|قولون|مغص)/i,
+            /(عين|نظر|رؤية|زغللة|احمرار)/i,
+            /(أذن|سمع|طنين|ألم أذن|صمم)/i,
+            /(أنف|شم|عطس|احتقان|زكام)/i,
+            /(حلق|بلع|صوت|بحة|التهاب)/i,
+            /(عظم|مفصل|ظهر|رقبة|ركبة)/i,
+            /(دم|نزيف|وريد|شريان|فقر دم)/i,
+            /(دماغ|عصب|نفسي|قلق|اكتئاب)/i,
+            /(حمل|طفل|ولادة|دورة|حائض)/i,
+            /(حساسية|تأثير|تحسس|عطاس|حكة)/i,
+            /(سكري|سكر|جلوكوز|أنسولين)/i,
+            /(ضغط|دم|ارتفاع|انخفاض|ضغط دم)/i,
+            /(سرطان|ورم|نمو|كتلة|خبيث)/i,
+            /(إصبع|قدم|يد|ظفر|كاحل)/i,
+            /(التهاب|انتان|جرثومة|بكتيريا|فيروس)/i,
+            /(دوخة|دوار|إغماء|عدم اتزان)/i,
+            /(إسهال|إمساك|بطن|تبرز|براز)/i,
+            /(تعب|إرهاق|ضعف|خمول|نعاس)/i,
+            /(نوم|أرق|استيقاظ|ليلة|حلم)/i,
+            /(وزن|خسارة|زيادة|سمنة|نحافة)/i,
+            /(بول|مثانة|كلية|تبول|مسالك)/i,
+            /(لقاح|تطعيم|إبرة|حقنة)/i,
+            /(فحص|اشعة|رنين|سونار|تشخيص)/i,
+            /(روشتة|جرعة|ملجم|مليجرام)/i,
+            /(طوارئ|عاجل|اسعاف|مستعجل)/i,
+
+            // Common symptom patterns
+            /(I have|I feel|I'm feeling|I've got)/i,
+            /(أعاني من|أشعر|لدي|عندي)/i,
+            /(what should I do|what can I take|how to treat)/i,
+            /(ماذا أفعل|ماذا آخذ|كيف أعالج)/i,
+            /(is this serious|should I worry|when to see doctor)/i,
+            /(هل هذا خطير|هل يجب أن أقلق|متى أرى الطبيب)/i
         ];
 
-        return medicalPatterns.some(pattern => pattern.test(lowerText));
+        // Question pattern detection
+        const questionPatterns = [
+            /\?/,
+            /(what|how|when|where|why|should|can|could).*\?/i,
+            /(ماذا|كيف|متى|أين|لماذا|هل).*\?/i
+        ];
+
+        const hasMedicalKeywords = medicalPatterns.some(pattern => pattern.test(cleanedText));
+        const isQuestion = questionPatterns.some(pattern => pattern.test(cleanedText));
+
+        const hasSymptomDescription = (
+            cleanedText.includes('have') ||
+            cleanedText.includes('feel') ||
+            cleanedText.includes('أعاني') ||
+            cleanedText.includes('أشعر') ||
+            cleanedText.includes('لدي')
+        ) && (
+                cleanedText.includes('pain') ||
+                cleanedText.includes('ache') ||
+                cleanedText.includes('fever') ||
+                cleanedText.includes('headache') ||
+                cleanedText.includes('ألم') ||
+                cleanedText.includes('حمى') ||
+                cleanedText.includes('صداع')
+            );
+
+        // Body part mentions
+        const bodyParts = [
+            'head', 'stomach', 'chest', 'back', 'throat', 'ear', 'eye', 'nose',
+            'رأس', 'بطن', 'صدر', 'ظهر', 'حلق', 'أذن', 'عين', 'أنف'
+        ];
+        const hasBodyPart = bodyParts.some(part => cleanedText.includes(part));
+
+        return (
+            hasMedicalKeywords ||
+            hasSymptomDescription ||
+            (isQuestion && hasBodyPart) ||
+            (isQuestion && cleanedText.length > 10) ||
+            hasBodyPart
+        );
     }, []);
 
-    return { isMedicalQuestion };
+    const detectEmergency = useCallback((text) => {
+        const lowerText = text.toLowerCase();
+
+        const emergencyKeywords = [
+            // English emergencies
+            'chest pain', 'heart attack', 'stroke', 'bleeding heavily',
+            'cannot breathe', 'difficulty breathing', 'unconscious',
+            'severe pain', 'suicide', 'kill myself', 'broken bone',
+            'burn', 'seizure', 'paralysis', 'allergic reaction',
+            'poison', 'overdose', 'choking', 'fainting',
+
+            // Arabic emergencies
+            'ألم في الصدر', 'نوبة قلبية', 'سكتة دماغية', 'نزيف حاد',
+            'صعوبة في التنفس', 'فقدان الوعي', 'ألم شديد',
+            'انتحار', 'كسر عظم', 'حريق', 'نوبة', 'شلل'
+        ];
+
+        return emergencyKeywords.some(keyword =>
+            lowerText.includes(keyword.toLowerCase())
+        );
+    }, []);
+
+    return {
+        isMedicalQuestion,
+        detectEmergency
+    };
 };
 
 export default useMedicalValidation;

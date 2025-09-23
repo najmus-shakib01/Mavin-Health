@@ -8,7 +8,7 @@ import MessageBubble from "./MessageBubble";
 import { useChatBot } from "./useChatBot";
 
 const ChatBotModal = ({ isOpen, onClose }) => {
-    const { messages, inputText, setInputText, copiedMessageId, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, language, changeLanguage, isEnglish, handleSendMessage, handleCopy, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation, showEmergencyAlert, closeEmergencyAlert
+    const { messages, inputText, setInputText, copiedMessageId, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, language, changeLanguage, isEnglish, handleSendMessage, handleCopy, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation, showEmergencyAlert, closeEmergencyAlert, startNewConversation
     } = useChatBot(onClose);
 
     const messagesEndRef = useRef(null);
@@ -49,7 +49,8 @@ const ChatBotModal = ({ isOpen, onClose }) => {
                 )}
 
                 <div ref={modalRef} className={`bg-white dark:bg-gray-800 rounded-xl w-full flex flex-col shadow-xl transition-all duration-300 ${isFullscreen ? 'max-w-4xl h-[90vh]' : 'max-w-md h-[70vh]'}`}>
-                    <ChatHeader isEnglish={isEnglish} language={language} changeLanguage={changeLanguage} isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} onClose={onClose} />
+                    <ChatHeader isEnglish={isEnglish} language={language} changeLanguage={changeLanguage} isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} onClose={onClose} startNewConversation={startNewConversation} messageCount={messages.length}
+                    />
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
                         {messages.length === 0 ? (

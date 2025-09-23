@@ -13,6 +13,7 @@ export const useChatBot = () => {
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEmergencyAlert, setShowEmergencyAlert] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState([]);
   const { isEnglish, changeLanguage, language, isArabic } = useLanguage();
 
   const streamHandler = useStreamHandler(setMessages, isArabic);
@@ -23,6 +24,11 @@ export const useChatBot = () => {
         ? `${cornerCases}\n\nPlease respond in English only and include SPECIALTY_RECOMMENDATION : [specialty name] in your response.`
         : `${cornerCases}\n\nيرجى الرد باللغة العربية فقط وتضمين SPECIALTY_RECOMMENDATION : [specialty name] في ردك.`;
 
+      const historyMessages = conversationHistory.slice(-6).map(msg => ({
+        role: msg.sender === "user" ? "user" : "assistant",
+        content: msg.text.replace(/<[^>]+>/g, '')
+      }));
+
       const response = await fetch(`${baseUrl}/completions`, {
         method: "POST",
         headers: {
@@ -30,9 +36,11 @@ export const useChatBot = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "deepseek/deepseek-r1:free",
+          // model: "deepseek/deepseek-r1:free",
+          model: "mistralai/mistral-small-24b-instruct-2501:free",
           messages: [
             { role: "system", content: languageSpecificPrompt },
+            ...historyMessages,
             { role: "user", content: inputText },
           ],
           temperature: 0,
@@ -69,11 +77,13 @@ export const useChatBot = () => {
 
     const languageVerification = verifyLanguage(inputText, isEnglish, isArabic);
     if (!languageVerification.valid) {
-      setMessages(prev => [
-        ...prev,
+      const newMessages = [
         { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
         { id: Date.now() + 1, text: languageVerification.message, sender: "bot", timestamp: new Date().toLocaleTimeString() }
-      ]);
+      ];
+
+      setMessages(prev => [...prev, ...newMessages]);
+      setConversationHistory(prev => [...prev, ...newMessages]);
       setInputText("");
       return;
     }
@@ -97,12 +107,13 @@ export const useChatBot = () => {
             </span>
           `;
 
-      setMessages(prev => [
-        ...prev,
+      const newMessages = [
         { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
         { id: Date.now() + 1, text: emergencyResponse, sender: "bot", timestamp: new Date().toLocaleTimeString() }
-      ]);
+      ];
 
+      setMessages(prev => [...prev, ...newMessages]);
+      setConversationHistory(prev => [...prev, ...newMessages]);
       setShowEmergencyAlert(true);
 
       setTimeout(() => {
@@ -118,40 +129,53 @@ export const useChatBot = () => {
         ? "I specialize only in medical diagnosis and disease detection queries. Please ask about health symptoms or medical conditions."
         : "أتخصص فقط في استفسارات التشخيص الطبي واكتشاف الأمراض. يرجى السؤال عن أعراض الصحية أو الحالات الطبية.";
 
-      setMessages(prev => [
-        ...prev,
+      const newMessages = [
         { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
         { id: Date.now() + 1, text: validationResponse, sender: "bot", timestamp: new Date().toLocaleTimeString() }
-      ]);
+      ];
+
+      setMessages(prev => [...prev, ...newMessages]);
+      setConversationHistory(prev => [...prev, ...newMessages]);
       setInputText("");
       return;
     }
 
-    const newMessage = {
+    const newUserMessage = {
       id: Date.now(),
       text: inputText,
       sender: "user",
       timestamp: new Date().toLocaleTimeString(),
     };
 
-    setMessages(prev => [...prev, newMessage]);
+    setMessages(prev => [...prev, newUserMessage]);
+    setConversationHistory(prev => [...prev, newUserMessage]);
 
-    setMessages(prev => [
-      ...prev,
-      {
-        id: Date.now() + 1,
-        text: isEnglish
-          ? "🔄 Analyzing Symptoms With Medical Database..."
-          : "🔄 جاري تحليل الأعراض مع قاعدة البيانات الطبية...",
-        sender: "bot",
-        isStreaming: true,
-        timestamp: new Date().toLocaleTimeString(),
+    const loadingMessage = {
+      id: Date.now() + 1,
+      text: isEnglish
+        ? "🔄 Analyzing Symptoms With Medical Database..."
+        : "🔄 جاري تحليل الأعراض مع قاعدة البيانات الطبية...",
+      sender: "bot",
+      isStreaming: true,
+      timestamp: new Date().toLocaleTimeString(),
+    };
+
+    setMessages(prev => [...prev, loadingMessage]);
+
+    sendMessageMutation.mutate(inputText, {
+      onSuccess: () => {
+        setMessages(prev => prev.filter(msg => msg.id !== loadingMessage.id));
       }
-    ]);
+    });
 
-    sendMessageMutation.mutate(inputText);
     setInputText("");
   }, [inputText, isEnglish, isArabic, sendMessageMutation]);
+
+  const startNewConversation = useCallback(() => {
+    setMessages([]);
+    setConversationHistory([]);
+    setInputText("");
+  }, []);
 
   const handleCopy = useCallback((text, id) => {
     navigator.clipboard.writeText(text.replace(/<[^>]+>/g, " ")).then(() => {
@@ -181,6 +205,6 @@ export const useChatBot = () => {
   }, []);
 
   return {
-    messages, inputText, setInputText, copiedMessageId, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, setIsFullscreen, showEmergencyAlert, setShowEmergencyAlert, closeEmergencyAlert, language, changeLanguage, isEnglish, handleSendMessage, handleCopy, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation
+    messages, inputText, setInputText, copiedMessageId, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, setIsFullscreen, showEmergencyAlert, setShowEmergencyAlert, closeEmergencyAlert, language, changeLanguage, isEnglish, conversationHistory, startNewConversation, handleSendMessage, handleCopy, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation
   };
 };

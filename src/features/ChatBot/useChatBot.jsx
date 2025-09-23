@@ -153,8 +153,8 @@ export const useChatBot = () => {
     const loadingMessage = {
       id: Date.now() + 1,
       text: isEnglish
-        ? "🔄 Analyzing Symptoms With Medical Database..."
-        : "🔄 جاري تحليل الأعراض مع قاعدة البيانات الطبية...",
+        ? "🔄 Analyzing your symptoms..."
+        : "🔄 جاري تحليل الأعراض...",
       sender: "bot",
       isStreaming: true,
       timestamp: new Date().toLocaleTimeString(),

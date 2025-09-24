@@ -15,7 +15,7 @@ const AssistantTab = ({
     const navigate = useNavigate();
     const { language, isEnglish } = useLanguage();
 
-    const isButtonDisabled = isProcessing || !userInput.trim() || (Date.now() - lastRequestTime < 2000);
+
 
     const handleCopy = () => {
         navigator.clipboard.writeText(response.replace(/<[^>]+>/g, " ")).then(() => {
@@ -184,12 +184,12 @@ const AssistantTab = ({
                 <div className="flex-1 relative">
                     <textarea ref={textareaRef} id="userInput" placeholder={isEnglish ? "Describe your health issue in detail to get a proper answer..." : "صف مشكلتك الصحية بالتفصيل للحصول على إجابة مناسبة..."} rows={1} autoFocus className={`w-full text-base border border-gray-300 dark:bg-gray-800 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none leading-relaxed max-h-40 overflow-y-auto pr-12 ${isEnglish ? "text-left" : "text-right"}`} dir={isEnglish ? "ltr" : "rtl"} value={userInput} onChange={(e) => setUserInput(e.target.value)} onInput={autoResizeTextarea} onKeyDown={handleKeyDown} />
 
-                    <button onClick={() => setIsVoiceModalOpen(true)} disabled={isButtonDisabled} className="absolute right-3 bottom-3 p-2 bg-gray-300 rounded-full text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed" title={isEnglish ? "Voice Input" : "الإدخال الصوتي"}>
+                    <button onClick={() => setIsVoiceModalOpen(true)} className="absolute right-3 bottom-3 p-2 bg-gray-300 rounded-full text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed" title={isEnglish ? "Voice Input" : "الإدخال الصوتي"}>
                         <FaMicrophone className="h-5 w-5" />
                     </button>
                 </div>
 
-                <button onClick={handleSendMessage} id="sendButton" disabled={isButtonDisabled} className="w-full md:w-auto px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                <button onClick={handleSendMessage} id="sendButton" className="w-full md:w-auto px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                     {isProcessing ? (
                         <div className="flex items-center gap-2">
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

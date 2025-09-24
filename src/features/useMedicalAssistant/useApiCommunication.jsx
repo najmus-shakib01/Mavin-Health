@@ -30,8 +30,7 @@ const useApiCommunication = (setResponse, responseDivRef, conversationHistory, s
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                        // model: "deepseek/deepseek-r1:free",
-                        model: "mistralai/mistral-small-24b-instruct-2501:free",
+                        model: "deepseek/deepseek-r1:free",
                         messages: messages,
                         temperature: 0,
                         stream: true,

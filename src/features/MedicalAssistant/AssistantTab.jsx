@@ -15,8 +15,6 @@ const AssistantTab = ({
     const navigate = useNavigate();
     const { language, isEnglish } = useLanguage();
 
-
-
     const handleCopy = () => {
         navigator.clipboard.writeText(response.replace(/<[^>]+>/g, " ")).then(() => {
             setCopied(true);

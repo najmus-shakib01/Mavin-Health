@@ -1,4 +1,5 @@
 import { marked } from "marked";
+import { formatResponseWithSources } from "../../utils/sourceExtractor";
 
 export const useStreamHandler = (setMessages, isArabic) => {
   const processStream = async (data) => {
@@ -36,7 +37,7 @@ export const useStreamHandler = (setMessages, isArabic) => {
                       ...prev.slice(0, -1),
                       {
                         ...lastMessage,
-                        text: marked.parse(fullResponse),
+                        text: marked.parse(formatResponseWithSources(fullResponse, isArabic)),
                         isStreaming: true
                       }
                     ];
@@ -45,7 +46,7 @@ export const useStreamHandler = (setMessages, isArabic) => {
                       ...prev,
                       {
                         id: Date.now(),
-                        text: marked.parse(fullResponse),
+                        text: marked.parse(formatResponseWithSources(fullResponse, isArabic)),
                         sender: "bot",
                         isStreaming: true,
                         timestamp: new Date().toLocaleTimeString()
@@ -61,7 +62,7 @@ export const useStreamHandler = (setMessages, isArabic) => {
         }
       }
 
-      let finalResponse = marked.parse(fullResponse);
+      let finalResponse = marked.parse(formatResponseWithSources(fullResponse, isArabic));
       finalResponse = finalResponse.replace(/SPECIALTY_RECOMMENDATION : \[.*?\]/, "");
 
       setMessages(prev => {

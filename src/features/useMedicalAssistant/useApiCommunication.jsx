@@ -3,6 +3,7 @@ import { marked } from "marked";
 import { apiKey, baseUrl } from "../../constants/env.constants";
 import { cornerCases } from "../../constants/env.cornercase";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { formatResponseWithSources } from "../../utils/sourceExtractor";
 
 const useApiCommunication = (setResponse, responseDivRef, conversationHistory, setConversationHistory) => {
     const { language } = useLanguage();
@@ -11,8 +12,8 @@ const useApiCommunication = (setResponse, responseDivRef, conversationHistory, s
         mutationFn: async (userMessage, { retry = 0 } = {}) => {
             try {
                 const languageSpecificPrompt = language === 'english'
-                    ? `${cornerCases}\n\nPlease respond in English only and include SPECIALTY_RECOMMENDATION : [specialty name] in your response.`
-                    : `${cornerCases}\n\nيرجى الرد باللغة العربية فقط وتضمين SPECIALTY_RECOMMENDATION : [specialty name] في ردك.`;
+                    ? `${cornerCases}\n\nPlease respond in English only and include 2-3 credible medical sources in [Source: Organization - URL] format.`
+                    : `${cornerCases}\n\nيرجى الرد باللغة العربية فقط وتضمين 2-3 مصادر طبية موثوقة بتنسيق [Source: Organization - URL].`;
 
                 const messages = [
                     { role: "system", content: languageSpecificPrompt },
@@ -30,11 +31,12 @@ const useApiCommunication = (setResponse, responseDivRef, conversationHistory, s
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                        model: "deepseek/deepseek-r1:free",
+                        // model: "deepseek/deepseek-r1:free",
+                        model: "mistralai/mistral-small-24b-instruct-2501:free",
                         messages: messages,
                         temperature: 0,
                         stream: true,
-                        max_tokens: 1000,
+                        max_tokens: 1500,
                     }),
                 });
 
@@ -98,7 +100,7 @@ const useApiCommunication = (setResponse, responseDivRef, conversationHistory, s
                                     if (token) {
                                         fullResponse += token;
                                         if (fullResponse.length % 5 === 0 || token.includes("\n")) {
-                                            setResponse(marked.parse(fullResponse));
+                                            setResponse(marked.parse(formatResponseWithSources(fullResponse, isArabic)));
                                         }
                                     }
                                 } catch (e) {
@@ -113,7 +115,7 @@ const useApiCommunication = (setResponse, responseDivRef, conversationHistory, s
                         }
                     }
 
-                    let finalResponse = marked.parse(fullResponse);
+                    let finalResponse = marked.parse(formatResponseWithSources(fullResponse, isArabic));
                     finalResponse = finalResponse.replace(/SPECIALTY_RECOMMENDATION : \[.*?\]/, "");
 
                     setResponse(finalResponse);

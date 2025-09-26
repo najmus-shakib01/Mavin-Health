@@ -36,7 +36,8 @@ export const useChatBot = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "deepseek/deepseek-r1:free",
+          // model: "deepseek/deepseek-r1:free",
+          model: "mistralai/mistral-small-24b-instruct-2501:free",
           messages: [
             { role: "system", content: languageSpecificPrompt },
             ...historyMessages,

@@ -19,8 +19,11 @@ export const formatResponseWithSources = (response, isArabic = false) => {
         return cleanResponse;
     }
 
-    const sourcesHeader = isArabic ? "📚 المراجع الطبية:" : "📚 Medical References : \n \n";
-    const sourcesList = sources.map(source => `• ${source}`).join('\n \n');
+    const sourcesHeader = isArabic ? "📚 المراجع الطبية:" : "📚 Medical References:";
+    const sourcesList = sources.map(source => {
+        const [name, url] = source.split(' - ');
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline">• ${name}</a>`;
+    }).join('<br>');
 
-    return `${cleanResponse}\n\n${sourcesHeader}\n${sourcesList}`;
+    return `${cleanResponse}<br><br><strong>${sourcesHeader}</strong><br>${sourcesList}`;
 };

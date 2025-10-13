@@ -1,7 +1,13 @@
 /* eslint-disable react/prop-types */
 import { FaCompress, FaExpand, FaRobot, FaTimes } from "react-icons/fa";
 
-const ChatHeader = ({ isEnglish, language, changeLanguage, isFullscreen, toggleFullscreen, onClose, startNewConversation, messageCount }) => {
+const ChatHeader = ({
+  isEnglish, language, changeLanguage,
+  isFullscreen, toggleFullscreen, onClose,
+  startNewConversation,
+  userMessageCount, sessionLimitReached,
+}) => {
+
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-center gap-2 sm:gap-3">
@@ -13,17 +19,14 @@ const ChatHeader = ({ isEnglish, language, changeLanguage, isFullscreen, toggleF
             Medical Assistant
           </h3>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-            {messageCount > 0
-              ? `${messageCount} ${isEnglish ? 'messages' : 'رسائل'}`
-              : `${isEnglish ? 'AI-powered medical consultation' : 'استشارة طبية مدعومة بالذكاء الاصطناعي'}`
-            }
+            {userMessageCount > 0 ? `${userMessageCount}/15 ${isEnglish ? 'messages' : 'رسائل'}` : `${isEnglish ? 'AI-powered medical consultation' : 'استشارة طبية مدعومة بالذكاء الاصطناعي'}`}
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
-        {messageCount > 0 && (
-          <button onClick={startNewConversation} className="px-2 sm:px-3 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg whitespace-nowrap hover:bg-gray-300 dark:hover:bg-gray-600 transition" title={isEnglish ? "Start new conversation" : "بدء محادثة جديدة"}>
+        {userMessageCount > 0 && (
+          <button onClick={startNewConversation} className="px-2 sm:px-3 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg whitespace-nowrap hover:bg-gray-300 dark:hover:bg-gray-600 transition" title={isEnglish ? "Start new conversation" : "بدء محادثة جديدة"} disabled={sessionLimitReached}>
             {isEnglish ? "New Chat" : "جديد"}
           </button>
         )}

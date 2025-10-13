@@ -7,9 +7,15 @@ import useMedicalValidation from "./useMedicalValidation";
 const useMedicalAssistant = () => {
   const [userInput, setUserInput] = useState("");
   const [response, setResponse] = useState("");
-  const [conversationHistory, setConversationHistory] = useState([]);
+  const [messageCount, setMessageCount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastRequestTime, setLastRequestTime] = useState(0);
+  const [userInfo, setUserInfo] = useState({
+    age: "",
+    gender: "",
+    symptoms: ""
+  });
+
   const responseDivRef = useRef(null);
   const { isEnglish, isArabic } = useLanguage();
 
@@ -19,9 +25,24 @@ const useMedicalAssistant = () => {
   const { sendMessageMutation } = useApiCommunication(
     setResponse,
     responseDivRef,
-    conversationHistory,
-    setConversationHistory
+    messageCount,
+    setMessageCount,
+    userInfo
   );
+
+  useState(() => {
+    const handleUserInfoUpdate = (event) => {
+      setUserInfo(event.detail);
+    };
+
+    window.addEventListener('userInfoUpdated', handleUserInfoUpdate);
+
+    return () => {
+      window.removeEventListener('userInfoUpdated', handleUserInfoUpdate);
+    };
+  }, []);
+
+  const sessionLimitReached = messageCount >= 15;
 
   const verifyLanguage = useCallback((text) => {
     const hasEnglish = /[a-zA-Z]/.test(text);
@@ -57,45 +78,42 @@ const useMedicalAssistant = () => {
     return { valid: true };
   }, [isEnglish, isArabic]);
 
+  const checkUserInfoProvided = useCallback(() => {
+    return userInfo.age && userInfo.gender;
+  }, [userInfo]);
+
   const handleSendMessage = useCallback(async () => {
     const now = Date.now();
     const timeSinceLastRequest = now - lastRequestTime;
-    
+
     if (timeSinceLastRequest < 2000) {
       const waitMessage = isEnglish
         ? `<span style='color:orange'>⏳ Please wait ${Math.ceil((2000 - timeSinceLastRequest) / 1000)} seconds before sending another request.</span>`
         : `<span style='color:orange'>⏳ يرجى الانتظار ${Math.ceil((2000 - timeSinceLastRequest) / 1000)} ثوانٍ قبل إرسال طلب آخر.</span>`;
-      
+
       setResponse(waitMessage);
       return;
     }
 
-    if (!userInput.trim() || isProcessing) return;
+    if (!userInput.trim() || isProcessing || sessionLimitReached) return;
+
+    if (!checkUserInfoProvided()) {
+      const infoMessage = isEnglish
+        ? `<span style='color:orange'>⚠️ To provide accurate medical advice, please update your patient information (age and gender) first.</span>`
+        : `<span style='color:orange'>⚠️ لتقديم نصائح طبية دقيقة، يرجى تحديث معلومات المريض (العمر والجنس) أولاً.</span>`;
+
+      setResponse(infoMessage);
+      return;
+    }
 
     setIsProcessing(true);
     setLastRequestTime(now);
     const userMessage = userInput.trim();
     setUserInput("");
 
-    const newUserMessage = {
-      sender: "user",
-      text: userMessage,
-      timestamp: new Date().toLocaleTimeString()
-    };
-
-    setConversationHistory(prev => [...prev, newUserMessage]);
-
     const languageVerification = verifyLanguage(userMessage);
     if (!languageVerification.valid) {
       setResponse(languageVerification.message);
-
-      const errorMessage = {
-        sender: "assistant",
-        text: languageVerification.message,
-        timestamp: new Date().toLocaleTimeString()
-      };
-
-      setConversationHistory(prev => [...prev, errorMessage]);
       setIsProcessing(false);
       return;
     }
@@ -116,14 +134,7 @@ const useMedicalAssistant = () => {
           </span>`;
 
       setResponse(emergencyResponse);
-
-      const emergencyMessage = {
-        sender: "assistant",
-        text: emergencyResponse,
-        timestamp: new Date().toLocaleTimeString()
-      };
-
-      setConversationHistory(prev => [...prev, emergencyMessage]);
+      setMessageCount(prev => prev + 1);
       setIsProcessing(false);
       return;
     }
@@ -134,14 +145,7 @@ const useMedicalAssistant = () => {
         : "أتخصص فقط في استفسارات التشخيص الطبي واكتشاف الأمراض. يرجى السؤال عن أعراض الصحية أو الحالات الطبية.";
 
       setResponse(errorResponse);
-
-      const errorMessage = {
-        sender: "assistant",
-        text: errorResponse,
-        timestamp: new Date().toLocaleTimeString()
-      };
-
-      setConversationHistory(prev => [...prev, errorMessage]);
+      setMessageCount(prev => prev + 1);
       setIsProcessing(false);
       return;
     }
@@ -153,21 +157,33 @@ const useMedicalAssistant = () => {
       );
 
       await sendMessageMutation.mutateAsync(userMessage);
+      setMessageCount(prev => prev + 1);
     } catch (error) {
       console.error("Error sending message:", error);
     } finally {
       setIsProcessing(false);
     }
-  }, [userInput, isProcessing, verifyLanguage, detectEmergency, isMedicalQuestion, sendMessageMutation, isEnglish, lastRequestTime]);
+  }, [
+    userInput, isProcessing, verifyLanguage, detectEmergency,
+    isMedicalQuestion, sendMessageMutation, isEnglish, lastRequestTime,
+    sessionLimitReached, checkUserInfoProvided
+  ]);
 
   const startNewConversation = useCallback(() => {
-    setConversationHistory([]);
+    setMessageCount(0);
     setResponse("");
     setUserInput("");
     setLastRequestTime(0);
   }, []);
 
-  return { userInput, setUserInput, response, responseDivRef, isProcessing, handleSendMessage, conversationHistory, startNewConversation, lastRequestTime };
+  return {
+    userInput, setUserInput,
+    response, responseDivRef,
+    isProcessing, handleSendMessage,
+    messageCount, startNewConversation,
+    sessionLimitReached,
+    userInfo
+  };
 };
 
 export default useMedicalAssistant;

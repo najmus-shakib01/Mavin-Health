@@ -9,25 +9,26 @@ import { useStreamHandler } from "./useStreamHandler";
 export const useChatBot = () => {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
-  const [copiedMessageId, setCopiedMessageId] = useState(null);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEmergencyAlert, setShowEmergencyAlert] = useState(false);
-  const [conversationHistory, setConversationHistory] = useState([]);
+  const [userInfo, setUserInfo] = useState({
+    age: "",
+    gender: "",
+    symptoms: ""
+  });
   const { isEnglish, changeLanguage, language, isArabic } = useLanguage();
 
-  const streamHandler = useStreamHandler(setMessages, isArabic);
+  const userMessageCount = messages.filter(msg => msg.sender === "user").length;
+  const sessionLimitReached = userMessageCount >= 15;
+
+  const streamHandler = useStreamHandler(setMessages, isArabic, userInfo);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (inputText) => {
       const languageSpecificPrompt = language === 'english'
-        ? `${cornerCases}\n\nPlease respond in English only and include SPECIALTY_RECOMMENDATION : [specialty name] in your response.`
-        : `${cornerCases}\n\nيرجى الرد باللغة العربية فقط وتضمين SPECIALTY_RECOMMENDATION : [specialty name] في ردك.`;
-
-      const historyMessages = conversationHistory.slice(-6).map(msg => ({
-        role: msg.sender === "user" ? "user" : "assistant",
-        content: msg.text.replace(/<[^>]+>/g, '')
-      }));
+        ? `${cornerCases}\n\nIMPORTANT: Include this disclaimer in every response: "⚠️ This AI system may not always be accurate. Do not take its responses as professional medical advice."\n\nPatient Information: Age: ${userInfo.age || 'Not provided'}, Gender: ${userInfo.gender || 'Not provided'}, Symptoms: ${userInfo.symptoms || 'Not provided'}\n\nPlease respond in English only and include SPECIALTY_RECOMMENDATION : [specialty name] in your response.`
+        : `${cornerCases}\n\nمهم: قم بتضمين هذا التحذير في كل رد: "⚠️ هذا النظام الذكي قد لا يكون دقيقًا دائمًا. لا تعتمد على ردوده كاستشارة طبية مهنية."\n\nمعلومات المريض: العمر: ${userInfo.age || 'غير مقدم'}, الجنس: ${userInfo.gender || 'غير مقدم'}, الأعراض: ${userInfo.symptoms || 'غير مقدم'}\n\nيرجى الرد باللغة العربية فقط وتضمين SPECIALTY_RECOMMENDATION : [specialty name] في ردك.`;
 
       const response = await fetch(`${baseUrl}/completions`, {
         method: "POST",
@@ -36,11 +37,9 @@ export const useChatBot = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          // model: "deepseek/deepseek-r1:free",
           model: "mistralai/mistral-small-24b-instruct-2501:free",
           messages: [
             { role: "system", content: languageSpecificPrompt },
-            ...historyMessages,
             { role: "user", content: inputText },
           ],
           temperature: 0,
@@ -72,8 +71,26 @@ export const useChatBot = () => {
     },
   });
 
+  const checkUserInfoProvided = useCallback(() => {
+    return userInfo.age && userInfo.gender;
+  }, [userInfo]);
+
   const handleSendMessage = useCallback(() => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || sessionLimitReached) return;
+
+    if (!checkUserInfoProvided()) {
+      const infoMessage = isEnglish
+        ? "⚠️ To provide accurate medical advice, please update your patient information (age and gender) first. Click the user icon to update."
+        : "⚠️ لتقديم نصائح طبية دقيقة، يرجى تحديث معلومات المريض (العمر والجنس) أولاً. انقر على أيقونة المستخدم للتحديث.";
+
+      setMessages(prev => [
+        ...prev,
+        { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
+        { id: Date.now() + 1, text: infoMessage, sender: "bot", timestamp: new Date().toLocaleTimeString() }
+      ]);
+      setInputText("");
+      return;
+    }
 
     const languageVerification = verifyLanguage(inputText, isEnglish, isArabic);
     if (!languageVerification.valid) {
@@ -83,7 +100,6 @@ export const useChatBot = () => {
       ];
 
       setMessages(prev => [...prev, ...newMessages]);
-      setConversationHistory(prev => [...prev, ...newMessages]);
       setInputText("");
       return;
     }
@@ -113,7 +129,6 @@ export const useChatBot = () => {
       ];
 
       setMessages(prev => [...prev, ...newMessages]);
-      setConversationHistory(prev => [...prev, ...newMessages]);
       setShowEmergencyAlert(true);
 
       setTimeout(() => {
@@ -135,7 +150,6 @@ export const useChatBot = () => {
       ];
 
       setMessages(prev => [...prev, ...newMessages]);
-      setConversationHistory(prev => [...prev, ...newMessages]);
       setInputText("");
       return;
     }
@@ -148,7 +162,6 @@ export const useChatBot = () => {
     };
 
     setMessages(prev => [...prev, newUserMessage]);
-    setConversationHistory(prev => [...prev, newUserMessage]);
 
     const loadingMessage = {
       id: Date.now() + 1,
@@ -169,19 +182,15 @@ export const useChatBot = () => {
     });
 
     setInputText("");
-  }, [inputText, isEnglish, isArabic, sendMessageMutation]);
+  }, [inputText, isEnglish, isArabic, sendMessageMutation, sessionLimitReached, checkUserInfoProvided]);
 
   const startNewConversation = useCallback(() => {
     setMessages([]);
-    setConversationHistory([]);
     setInputText("");
   }, []);
 
-  const handleCopy = useCallback((text, id) => {
-    navigator.clipboard.writeText(text.replace(/<[^>]+>/g, " ")).then(() => {
-      setCopiedMessageId(id);
-      setTimeout(() => setCopiedMessageId(null), 1500);
-    });
+  const handleCopy = useCallback((text) => {
+    navigator.clipboard.writeText(text.replace(/<[^>]+>/g, " ")).then(() => {});
   }, []);
 
   const handleVoiceTextConverted = useCallback((text) => {
@@ -204,7 +213,10 @@ export const useChatBot = () => {
     setShowEmergencyAlert(false);
   }, []);
 
-  return {
-    messages, inputText, setInputText, copiedMessageId, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, setIsFullscreen, showEmergencyAlert, setShowEmergencyAlert, closeEmergencyAlert, language, changeLanguage, isEnglish, conversationHistory, startNewConversation, handleSendMessage, handleCopy, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation
+  const updateUserInfo = useCallback((newUserInfo) => {
+    setUserInfo(newUserInfo);
+  }, []);
+
+  return { messages, inputText, setInputText, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, setIsFullscreen, showEmergencyAlert, setShowEmergencyAlert, closeEmergencyAlert, language, changeLanguage, isEnglish, startNewConversation, handleSendMessage, handleCopy, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation, sessionLimitReached, userInfo, updateUserInfo, userMessageCount
   };
 };

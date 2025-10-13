@@ -1,15 +1,18 @@
 /* eslint-disable react/prop-types */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaAmbulance, FaTimes } from "react-icons/fa";
 import VoiceInputModal from "../../components/VoiceInputModal";
 import ChatHeader from "./ChatHeader";
 import ChatInput from "./ChatInput";
 import MessageBubble from "./MessageBubble";
+import UserInfoModal from "./UserInfoModal";
 import { useChatBot } from "./useChatBot";
 
 const ChatBotModal = ({ isOpen, onClose }) => {
-    const { messages, inputText, setInputText, copiedMessageId, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, language, changeLanguage, isEnglish, handleSendMessage, handleCopy, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation, showEmergencyAlert, closeEmergencyAlert, startNewConversation
+    const { messages, inputText, setInputText, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, showEmergencyAlert, closeEmergencyAlert, language, changeLanguage, isEnglish, handleSendMessage, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation, sessionLimitReached, userInfo, updateUserInfo, startNewConversation, userMessageCount
     } = useChatBot(onClose);
+
+    const [isUserInfoModalOpen, setIsUserInfoModalOpen] = useState(false);
 
     const messagesEndRef = useRef(null);
     const modalRef = useRef(null);
@@ -49,8 +52,7 @@ const ChatBotModal = ({ isOpen, onClose }) => {
                 )}
 
                 <div ref={modalRef} className={`bg-white dark:bg-gray-800 rounded-xl w-full flex flex-col shadow-xl transition-all duration-300 ${isFullscreen ? 'max-w-4xl h-[90vh]' : 'max-w-md h-[70vh]'}`}>
-                    <ChatHeader isEnglish={isEnglish} language={language} changeLanguage={changeLanguage} isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} onClose={onClose} startNewConversation={startNewConversation} messageCount={messages.length}
-                    />
+                    <ChatHeader isEnglish={isEnglish} language={language} changeLanguage={changeLanguage} isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} onClose={onClose} startNewConversation={startNewConversation} messageCount={messages.length} userMessageCount={userMessageCount} sessionLimitReached={sessionLimitReached} onUserInfoClick={() => setIsUserInfoModalOpen(true)} userInfo={userInfo} />
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
                         {messages.length === 0 ? (
@@ -64,14 +66,42 @@ const ChatBotModal = ({ isOpen, onClose }) => {
                                 <h3 className="font-medium text-lg mb-1">
                                     {isEnglish ? "Medical Chat Assistant" : "مساعد الدردشة الطبية"}
                                 </h3>
-                                <p className="text-sm max-w-xs">
+                                <p className="text-sm max-w-xs mb-4">
                                     {isEnglish ? "Describe your symptoms and get AI-powered medical insights." : "صف أعراضك واحصل على رؤى طبية مدعومة بالذكاء الاصطناعي."}
                                 </p>
+
+                                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg max-w-xs">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                        <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                                            {isEnglish ? "Get Started" : "ابدأ الآن"}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-blue-700 dark:text-blue-400">
+                                        {isEnglish
+                                            ? "Update your patient information for accurate medical advice."
+                                            : "قم بتحديث معلومات المريض للحصول على نصائح طبية دقيقة."
+                                        }
+                                    </p>
+                                    <button onClick={() => setIsUserInfoModalOpen(true)} className="mt-2 w-full px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition">
+                                        {isEnglish ? "Update Info" : "تحديث المعلومات"}
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             messages.map((message) => (
-                                <MessageBubble key={message.id} message={message} isEnglish={isEnglish} copiedMessageId={copiedMessageId} handleCopy={handleCopy} />
+                                <MessageBubble key={message.id} message={message} isEnglish={isEnglish} />
                             ))
+                        )}
+
+                        {sessionLimitReached && (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                                <p className="text-yellow-700 font-medium text-sm">
+                                    {isEnglish ? "You've reached the chat limit for this session. Please start a new one to continue." : "لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة."}
+                                </p>
+                            </div>
                         )}
 
                         {sendMessageMutation.isPending && (
@@ -88,12 +118,13 @@ const ChatBotModal = ({ isOpen, onClose }) => {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    <ChatInput inputText={inputText} setInputText={setInputText} isEnglish={isEnglish} autoResizeTextarea={autoResizeTextarea} handleSendMessage={handleSendMessage} setIsVoiceModalOpen={setIsVoiceModalOpen} sendMessageMutation={sendMessageMutation} textareaRef={textareaRef}
-                    />
+                    <ChatInput inputText={inputText} setInputText={setInputText} isEnglish={isEnglish} autoResizeTextarea={autoResizeTextarea} handleSendMessage={handleSendMessage} setIsVoiceModalOpen={setIsVoiceModalOpen} sendMessageMutation={sendMessageMutation} textareaRef={textareaRef} sessionLimitReached={sessionLimitReached} />
                 </div>
             </div>
 
             <VoiceInputModal isOpen={isVoiceModalOpen} onClose={() => setIsVoiceModalOpen(false)} onTextConverted={handleVoiceTextConverted} />
+
+            <UserInfoModal isOpen={isUserInfoModalOpen} onClose={() => setIsUserInfoModalOpen(false)} userInfo={userInfo} onUpdate={updateUserInfo} />
         </div>
     );
 };

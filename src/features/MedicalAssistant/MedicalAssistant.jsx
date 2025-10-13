@@ -5,7 +5,13 @@ import AssistantTab from "./AssistantTab";
 import Header from "./Header";
 
 const MedicalAssistant = () => {
-  const { userInput, setUserInput, response, responseDivRef, isProcessing, handleSendMessage, conversationHistory, startNewConversation
+  const {
+    userInput, setUserInput,
+    response, responseDivRef,
+    isProcessing, handleSendMessage,
+    messageCount, startNewConversation,
+    sessionLimitReached,
+    userInfo
   } = useMedicalAssistant();
 
   const textareaRef = useRef(null);
@@ -36,7 +42,7 @@ const MedicalAssistant = () => {
         <div className="bg-white shadow-2xl rounded-2xl overflow-hidden dark:bg-gray-900">
           <Header />
           <div className="p-6 dark:bg-gray-800">
-            <AssistantTab userInput={userInput} setUserInput={setUserInput} response={response} responseDivRef={responseDivRef} isProcessing={isProcessing} handleSendMessage={handleSendMessage} handleKeyDown={handleKeyDown} textareaRef={textareaRef} autoResizeTextarea={autoResizeTextarea} conversationHistory={conversationHistory} startNewConversation={startNewConversation} />
+            <AssistantTab userInput={userInput} setUserInput={setUserInput} response={response} responseDivRef={responseDivRef} isProcessing={isProcessing} handleSendMessage={handleSendMessage} handleKeyDown={handleKeyDown} textareaRef={textareaRef} autoResizeTextarea={autoResizeTextarea} messageCount={messageCount} startNewConversation={startNewConversation} sessionLimitReached={sessionLimitReached} userInfo={userInfo} />
           </div>
         </div>
       </div>

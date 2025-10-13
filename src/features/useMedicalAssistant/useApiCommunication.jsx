@@ -5,22 +5,18 @@ import { cornerCases } from "../../constants/env.cornercase";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { formatResponseWithSources } from "../../utils/sourceExtractor";
 
-const useApiCommunication = (setResponse, responseDivRef, conversationHistory, setConversationHistory) => {
+const useApiCommunication = (setResponse, responseDivRef, userInfo) => {
     const { language } = useLanguage();
 
     const sendMessageMutation = useMutation({
         mutationFn: async (userMessage, { retry = 0 } = {}) => {
             try {
                 const languageSpecificPrompt = language === 'english'
-                    ? `${cornerCases}\n\nPlease respond in English only and include 2-3 credible medical sources in [Source: Organization - URL] format.`
-                    : `${cornerCases}\n\nيرجى الرد باللغة العربية فقط وتضمين 2-3 مصادر طبية موثوقة بتنسيق [Source: Organization - URL].`;
+                    ? `${cornerCases}\n\nIMPORTANT: Include this disclaimer in every response: "⚠️ This AI system may not always be accurate. Do not take its responses as professional medical advice."\n\nPatient Information: Age: ${userInfo.age || 'Not provided'}, Gender: ${userInfo.gender || 'Not provided'}, Symptoms: ${userInfo.symptoms || 'Not provided'}\n\nPlease respond in English only and include 2-3 credible medical sources in [Source: Organization - URL] format.`
+                    : `${cornerCases}\n\nمهم: قم بتضمين هذا التحذير في كل رد: "⚠️ هذا النظام الذكي قد لا يكون دقيقًا دائمًا. لا تعتمد على ردوده كاستشارة طبية مهنية."\n\nمعلومات المريض: العمر: ${userInfo.age || 'غير مقدم'}, الجنس: ${userInfo.gender || 'غير مقدم'}, الأعراض: ${userInfo.symptoms || 'غير مقدم'}\n\nيرجى الرد باللغة العربية فقط وتضمين 2-3 مصادر طبية موثوقة بتنسيق [Source: Organization - URL].`;
 
                 const messages = [
                     { role: "system", content: languageSpecificPrompt },
-                    ...conversationHistory.map(msg => ({
-                        role: msg.sender === "user" ? "user" : "assistant",
-                        content: msg.text
-                    })),
                     { role: "user", content: userMessage }
                 ];
 
@@ -31,7 +27,6 @@ const useApiCommunication = (setResponse, responseDivRef, conversationHistory, s
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                        // model: "deepseek/deepseek-r1:free",
                         model: "mistralai/mistral-small-24b-instruct-2501:free",
                         messages: messages,
                         temperature: 0,
@@ -120,28 +115,12 @@ const useApiCommunication = (setResponse, responseDivRef, conversationHistory, s
 
                     setResponse(finalResponse);
 
-                    const newAiMessage = {
-                        sender: "assistant",
-                        text: finalResponse,
-                        timestamp: new Date().toLocaleTimeString()
-                    };
-
-                    setConversationHistory(prev => [...prev, newAiMessage]);
-
                 } catch (error) {
                     const errorMessage = isArabic
                         ? `<span style="color: red">خطأ في معالجة الاستجابة: ${error.message}</span>`
                         : `<span style="color: red">Response processing error: ${error.message}</span>`;
 
                     setResponse(errorMessage);
-
-                    const newErrorMessage = {
-                        sender: "assistant",
-                        text: errorMessage,
-                        timestamp: new Date().toLocaleTimeString()
-                    };
-
-                    setConversationHistory(prev => [...prev, newErrorMessage]);
                 } finally {
                     reader.releaseLock();
                 }
@@ -168,14 +147,6 @@ const useApiCommunication = (setResponse, responseDivRef, conversationHistory, s
             }
 
             setResponse(errorMessage);
-
-            const newErrorMessage = {
-                sender: "assistant",
-                text: errorMessage,
-                timestamp: new Date().toLocaleTimeString()
-            };
-
-            setConversationHistory(prev => [...prev, newErrorMessage]);
         }
     });
 

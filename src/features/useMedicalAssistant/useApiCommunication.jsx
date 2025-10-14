@@ -12,8 +12,8 @@ const useApiCommunication = (setResponse, responseDivRef, userInfo) => {
         mutationFn: async (userMessage, { retry = 0 } = {}) => {
             try {
                 const languageSpecificPrompt = language === 'english'
-                    ? `${cornerCases}\n\nIMPORTANT: Include this disclaimer in every response: "⚠️ This AI system may not always be accurate. Do not take its responses as professional medical advice."\n\nPatient Information: Age: ${userInfo.age || 'Not provided'}, Gender: ${userInfo.gender || 'Not provided'}, Symptoms: ${userInfo.symptoms || 'Not provided'}\n\nPlease respond in English only and include 2-3 credible medical sources in [Source: Organization - URL] format.`
-                    : `${cornerCases}\n\nمهم: قم بتضمين هذا التحذير في كل رد: "⚠️ هذا النظام الذكي قد لا يكون دقيقًا دائمًا. لا تعتمد على ردوده كاستشارة طبية مهنية."\n\nمعلومات المريض: العمر: ${userInfo.age || 'غير مقدم'}, الجنس: ${userInfo.gender || 'غير مقدم'}, الأعراض: ${userInfo.symptoms || 'غير مقدم'}\n\nيرجى الرد باللغة العربية فقط وتضمين 2-3 مصادر طبية موثوقة بتنسيق [Source: Organization - URL].`;
+                    ? `${cornerCases}\n\nPatient Information: Age: ${userInfo.age || 'Not provided'}, Gender: ${userInfo.gender || 'Not provided'}, Symptoms: ${userInfo.symptoms || 'Not provided'}\n\nPlease analyze the symptoms and provide a medical response with dynamic sources.`
+                    : `${cornerCases}\n\nمعلومات المريض: العمر: ${userInfo.age || 'غير مقدم'}, الجنس: ${userInfo.gender || 'غير مقدم'}, الأعراض: ${userInfo.symptoms || 'غير مقدم'}\n\nيرجى تحليل الأعراض وتقديم رد طبي بمصادر ديناميكية.`;
 
                 const messages = [
                     { role: "system", content: languageSpecificPrompt },
@@ -29,9 +29,9 @@ const useApiCommunication = (setResponse, responseDivRef, userInfo) => {
                     body: JSON.stringify({
                         model: "mistralai/mistral-small-24b-instruct-2501:free",
                         messages: messages,
-                        temperature: 0,
+                        temperature: 0.1,
                         stream: true,
-                        max_tokens: 1500,
+                        max_tokens: 2000,
                     }),
                 });
 
@@ -44,8 +44,8 @@ const useApiCommunication = (setResponse, responseDivRef, userInfo) => {
                         try {
                             const errorData = await response.json();
                             errorMessage = errorData.error?.message || errorMessage;
-                        } catch {
-                            // Ignore JSON parsing errors
+                        } catch (error) {
+                            console.log("error : ", error);
                         }
                     }
 

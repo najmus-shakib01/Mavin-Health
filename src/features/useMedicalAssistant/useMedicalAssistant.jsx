@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useSession } from "../../contexts/SessionContext";
 import useApiCommunication from "./useApiCommunication";
 import useEmergencyDetection from "./useEmergencyDetection";
 import useMedicalValidation from "./useMedicalValidation";
@@ -7,17 +8,13 @@ import useMedicalValidation from "./useMedicalValidation";
 const useMedicalAssistant = () => {
   const [userInput, setUserInput] = useState("");
   const [response, setResponse] = useState("");
-  const [messageCount, setMessageCount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastRequestTime, setLastRequestTime] = useState(0);
-  const [userInfo, setUserInfo] = useState({
-    age: "",
-    gender: "",
-    symptoms: ""
-  });
-
+  const [hasAskedForInfo, setHasAskedForInfo] = useState(false);
   const responseDivRef = useRef(null);
   const { isEnglish, isArabic } = useLanguage();
+
+  const { sessionLimitReached, incrementMessageCount, resetSession, userInfo, updateUserInfo, hasBasicInfo } = useSession();
 
   const { detectEmergency } = useEmergencyDetection();
   const { isMedicalQuestion } = useMedicalValidation();
@@ -25,24 +22,16 @@ const useMedicalAssistant = () => {
   const { sendMessageMutation } = useApiCommunication(
     setResponse,
     responseDivRef,
-    messageCount,
-    setMessageCount,
-    userInfo
+    [],
+    () => { }
   );
 
-  useState(() => {
-    const handleUserInfoUpdate = (event) => {
-      setUserInfo(event.detail);
-    };
-
-    window.addEventListener('userInfoUpdated', handleUserInfoUpdate);
-
-    return () => {
-      window.removeEventListener('userInfoUpdated', handleUserInfoUpdate);
-    };
+  const autoResizeTextarea = useCallback((textareaRef) => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
   }, []);
-
-  const sessionLimitReached = messageCount >= 15;
 
   const verifyLanguage = useCallback((text) => {
     const hasEnglish = /[a-zA-Z]/.test(text);
@@ -78,9 +67,30 @@ const useMedicalAssistant = () => {
     return { valid: true };
   }, [isEnglish, isArabic]);
 
-  const checkUserInfoProvided = useCallback(() => {
-    return userInfo.age && userInfo.gender;
-  }, [userInfo]);
+  const extractUserInfoFromMessage = useCallback((message) => {
+    const lowerMessage = message.toLowerCase();
+
+    const ageMatch = message.match(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/i);
+    const age = ageMatch ? ageMatch[1] : '';
+
+    let gender = '';
+    if (lowerMessage.includes('male') || lowerMessage.includes('man') || lowerMessage.includes('رجل') || lowerMessage.includes('ذكر') || lowerMessage.includes('gentleman')) {
+      gender = 'male';
+    } else if (lowerMessage.includes('female') || lowerMessage.includes('woman') || lowerMessage.includes('أنثى') || lowerMessage.includes('فتاة') || lowerMessage.includes('lady')) {
+      gender = 'female';
+    }
+
+    let symptoms = '';
+    if (message.length > 10) {
+      symptoms = message
+        .replace(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/gi, '')
+        .replace(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة)/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    return { age, gender, symptoms };
+  }, []);
 
   const handleSendMessage = useCallback(async () => {
     const now = Date.now();
@@ -97,19 +107,17 @@ const useMedicalAssistant = () => {
 
     if (!userInput.trim() || isProcessing || sessionLimitReached) return;
 
-    if (!checkUserInfoProvided()) {
-      const infoMessage = isEnglish
-        ? `<span style='color:orange'>⚠️ To provide accurate medical advice, please update your patient information (age and gender) first.</span>`
-        : `<span style='color:orange'>⚠️ لتقديم نصائح طبية دقيقة، يرجى تحديث معلومات المريض (العمر والجنس) أولاً.</span>`;
-
-      setResponse(infoMessage);
-      return;
-    }
-
     setIsProcessing(true);
     setLastRequestTime(now);
     const userMessage = userInput.trim();
     setUserInput("");
+
+    const extractedInfo = extractUserInfoFromMessage(userMessage);
+    const hasNewInfo = extractedInfo.age || extractedInfo.gender || extractedInfo.symptoms;
+
+    if (hasNewInfo) {
+      updateUserInfo(extractedInfo);
+    }
 
     const languageVerification = verifyLanguage(userMessage);
     if (!languageVerification.valid) {
@@ -134,7 +142,6 @@ const useMedicalAssistant = () => {
           </span>`;
 
       setResponse(emergencyResponse);
-      setMessageCount(prev => prev + 1);
       setIsProcessing(false);
       return;
     }
@@ -145,9 +152,29 @@ const useMedicalAssistant = () => {
         : "أتخصص فقط في استفسارات التشخيص الطبي واكتشاف الأمراض. يرجى السؤال عن أعراض الصحية أو الحالات الطبية.";
 
       setResponse(errorResponse);
-      setMessageCount(prev => prev + 1);
       setIsProcessing(false);
       return;
+    }
+
+    const currentHasBasicInfo = hasBasicInfo();
+
+    if (!currentHasBasicInfo && !hasAskedForInfo) {
+      const infoPrompt = isEnglish
+        ? "To provide you with the most accurate medical analysis, could you please share your age, gender, and main symptoms? For example: 'I am 25 years old male with headache and fever for 2 days.'"
+        : "لتقديم تحليل طبي دقيق، هل يمكنك مشاركة عمرك وجنسك والأعراض الرئيسية؟ على سبيل المثال: 'أنا رجل عمري 25 سنة أعاني من صداع وحمى لمدة يومين.'";
+
+      setResponse(infoPrompt);
+      setHasAskedForInfo(true);
+      setIsProcessing(false);
+      return;
+    }
+
+    if (!currentHasBasicInfo && hasAskedForInfo && hasNewInfo) {
+      const missingInfoPrompt = isEnglish
+        ? "Thank you for the information. I notice some details are still missing, but I'll analyze your symptoms based on what you've provided. For more accurate results, please include your age, gender, and specific symptoms."
+        : "شكرًا لك على المعلومات. ألاحظ أن بعض التفاصيل لا تزال مفقودة، لكنني سأحلل أعراضك بناءً على ما قدمته. للحصول على نتائج أكثر دقة، يرجى تضمين عمرك وجنسك وأعراضك المحددة.";
+
+      setResponse(missingInfoPrompt);
     }
 
     try {
@@ -156,34 +183,37 @@ const useMedicalAssistant = () => {
         : "🔄 جاري تحليل الأعراض..."
       );
 
+      incrementMessageCount();
+
       await sendMessageMutation.mutateAsync(userMessage);
-      setMessageCount(prev => prev + 1);
     } catch (error) {
       console.error("Error sending message:", error);
+      const errorMessage = isEnglish
+        ? `<span style="color:red">Error: ${error.message}</span>`
+        : `<span style="color:red">خطأ: ${error.message}</span>`;
+      setResponse(errorMessage);
     } finally {
       setIsProcessing(false);
     }
   }, [
-    userInput, isProcessing, verifyLanguage, detectEmergency,
-    isMedicalQuestion, sendMessageMutation, isEnglish, lastRequestTime,
-    sessionLimitReached, checkUserInfoProvided
+    userInput, isProcessing, verifyLanguage, detectEmergency, isMedicalQuestion,
+    sendMessageMutation, isEnglish, lastRequestTime, sessionLimitReached,
+    hasBasicInfo, incrementMessageCount, extractUserInfoFromMessage,
+    updateUserInfo, hasAskedForInfo
   ]);
 
-  const startNewConversation = useCallback(() => {
-    setMessageCount(0);
-    setResponse("");
-    setUserInput("");
-    setLastRequestTime(0);
-  }, []);
+  const handleKeyDown = useCallback((event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
+    }
+  }, [handleSendMessage]);
 
-  return {
-    userInput, setUserInput,
-    response, responseDivRef,
-    isProcessing, handleSendMessage,
-    messageCount, startNewConversation,
-    sessionLimitReached,
-    userInfo
-  };
+  const startNewConversation = useCallback(() => {
+    setResponse(""); setUserInput(""); setLastRequestTime(0); setHasAskedForInfo(false); resetSession();
+  }, [resetSession]);
+
+  return { userInput, setUserInput, response, responseDivRef, isProcessing, handleSendMessage, handleKeyDown, autoResizeTextarea, startNewConversation, userInfo };
 };
 
 export default useMedicalAssistant;

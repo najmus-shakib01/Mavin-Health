@@ -4,7 +4,9 @@ import { LanguageProvider } from "../contexts/LanguageContext";
 const Main = () => {
   return (
     <LanguageProvider>
-      <Outlet />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <Outlet />
+      </div>
     </LanguageProvider>
   );
 };

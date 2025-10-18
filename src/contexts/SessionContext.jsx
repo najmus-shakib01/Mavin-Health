@@ -1,0 +1,45 @@
+/* eslint-disable react/prop-types */
+import { createContext, useCallback, useContext, useState } from 'react';
+
+const SessionContext = createContext();
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const useSession = () => {
+    const context = useContext(SessionContext);
+    if (!context) {
+        throw new Error('useSession must be used within a SessionProvider');
+    }
+    return context;
+};
+
+export const SessionProvider = ({ children }) => {
+    const [messageCount, setMessageCount] = useState(0);
+    const [sessionLimit] = useState(15); 
+    const [userInfo, setUserInfo] = useState({age: '',gender: '',symptoms: '',days: '',medications: '',allergies: ''});
+
+    const incrementMessageCount = useCallback(() => {
+        setMessageCount(prev => prev + 1);
+    }, []);
+
+    const resetSession = useCallback(() => {
+        setMessageCount(0);
+        setUserInfo({age: '',gender: '',symptoms: '',days: '',medications: '',allergies: ''});
+    }, []);
+
+    const updateUserInfo = useCallback((newInfo) => {
+        setUserInfo(prev => ({ ...prev, ...newInfo }));
+    }, []);
+
+    const hasBasicInfo = useCallback(() => {
+        return userInfo.age && userInfo.gender && userInfo.symptoms;
+    }, [userInfo]);
+
+    const value = {messageCount,sessionLimit,sessionLimitReached: messageCount >= sessionLimit,incrementMessageCount,resetSession,userInfo,updateUserInfo,hasBasicInfo
+    };
+
+    return (
+        <SessionContext.Provider value={value}>
+            {children}
+        </SessionContext.Provider>
+    );
+};

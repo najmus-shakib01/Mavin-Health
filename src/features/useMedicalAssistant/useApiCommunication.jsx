@@ -3,22 +3,21 @@ import { marked } from "marked";
 import { apiKey, baseUrl } from "../../constants/env.constants";
 import { cornerCases } from "../../constants/env.cornercase";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useSession } from "../../contexts/SessionContext";
 import { formatResponseWithSources } from "../../utils/sourceExtractor";
 
-const useApiCommunication = (setResponse, responseDivRef, userInfo) => {
+const useApiCommunication = (setResponse, responseDivRef) => {
     const { language } = useLanguage();
+    const { userInfo } = useSession();
 
     const sendMessageMutation = useMutation({
         mutationFn: async (userMessage, { retry = 0 } = {}) => {
             try {
                 const languageSpecificPrompt = language === 'english'
-                    ? `${cornerCases}\n\nPatient Information: Age: ${userInfo.age || 'Not provided'}, Gender: ${userInfo.gender || 'Not provided'}, Symptoms: ${userInfo.symptoms || 'Not provided'}\n\nPlease analyze the symptoms and provide a medical response with dynamic sources.`
-                    : `${cornerCases}\n\nمعلومات المريض: العمر: ${userInfo.age || 'غير مقدم'}, الجنس: ${userInfo.gender || 'غير مقدم'}, الأعراض: ${userInfo.symptoms || 'غير مقدم'}\n\nيرجى تحليل الأعراض وتقديم رد طبي بمصادر ديناميكية.`;
+                    ? `${cornerCases}\n\nPatient Context: ${userInfo.age ? `Age: ${userInfo.age}` : 'Age not provided'}, ${userInfo.gender ? `Gender: ${userInfo.gender}` : 'Gender not provided'}, ${userInfo.symptoms ? `Symptoms: ${userInfo.symptoms}` : 'Symptoms not provided'}. Please respond in English only and include 2-3 credible medical sources in [Source: Organization - URL] format.`
+                    : `${cornerCases}\n\nسياق المريض: ${userInfo.age ? `العمر: ${userInfo.age}` : 'العمر غير مقدم'}, ${userInfo.gender ? `الجنس: ${userInfo.gender}` : 'الجنس غير مقدم'}, ${userInfo.symptoms ? `الأعراض: ${userInfo.symptoms}` : 'الأعراض غير مقدم'}. يرجى الرد باللغة العربية فقط وتضمين 2-3 مصادر طبية موثوقة بتنسيق [Source: Organization - URL].`;
 
-                const messages = [
-                    { role: "system", content: languageSpecificPrompt },
-                    { role: "user", content: userMessage }
-                ];
+                console.log('Sending request with prompt:', languageSpecificPrompt); // Debug log
 
                 const response = await fetch(`${baseUrl}/completions`, {
                     method: "POST",
@@ -28,10 +27,13 @@ const useApiCommunication = (setResponse, responseDivRef, userInfo) => {
                     },
                     body: JSON.stringify({
                         model: "mistralai/mistral-small-24b-instruct-2501:free",
-                        messages: messages,
-                        temperature: 0.1,
+                        messages: [
+                            { role: "system", content: languageSpecificPrompt },
+                            { role: "user", content: userMessage }
+                        ],
+                        temperature: 0,
                         stream: true,
-                        max_tokens: 2000,
+                        max_tokens: 1500,
                     }),
                 });
 
@@ -44,8 +46,8 @@ const useApiCommunication = (setResponse, responseDivRef, userInfo) => {
                         try {
                             const errorData = await response.json();
                             errorMessage = errorData.error?.message || errorMessage;
-                        } catch (error) {
-                            console.log("error : ", error);
+                        } catch {
+                            // Ignore JSON parsing errors
                         }
                     }
 

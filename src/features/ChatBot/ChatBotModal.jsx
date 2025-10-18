@@ -1,19 +1,31 @@
 /* eslint-disable react/prop-types */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { FaAmbulance, FaTimes } from "react-icons/fa";
 import VoiceInputModal from "../../components/VoiceInputModal";
+import { SessionProvider, useSession } from "../../contexts/SessionContext";
 import ChatHeader from "./ChatHeader";
 import ChatInput from "./ChatInput";
 import MessageBubble from "./MessageBubble";
-import UserInfoModal from "./UserInfoModal";
 import { useChatBot } from "./useChatBot";
 
 const ChatBotModal = ({ isOpen, onClose }) => {
-    const { messages, inputText, setInputText, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, showEmergencyAlert, closeEmergencyAlert, language, changeLanguage, isEnglish, handleSendMessage, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation, sessionLimitReached, userInfo, updateUserInfo, startNewConversation, userMessageCount
+    return (
+        <SessionProvider>
+            <ChatBotModalContent isOpen={isOpen} onClose={onClose} />
+        </SessionProvider>
+    );
+};
+
+const ChatBotModalContent = ({ isOpen, onClose }) => {
+    const {
+        messages, inputText, setInputText, copiedMessageId, isVoiceModalOpen,
+        setIsVoiceModalOpen, isFullscreen, language, changeLanguage, isEnglish,
+        handleSendMessage, handleCopy, handleVoiceTextConverted, autoResizeTextarea,
+        toggleFullscreen, sendMessageMutation, showEmergencyAlert, closeEmergencyAlert,
+        startNewConversation
     } = useChatBot(onClose);
 
-    const [isUserInfoModalOpen, setIsUserInfoModalOpen] = useState(false);
-
+    const { sessionLimitReached, userInfo, updateUserInfo } = useSession();
     const messagesEndRef = useRef(null);
     const modalRef = useRef(null);
     const textareaRef = useRef(null);
@@ -52,7 +64,7 @@ const ChatBotModal = ({ isOpen, onClose }) => {
                 )}
 
                 <div ref={modalRef} className={`bg-white dark:bg-gray-800 rounded-xl w-full flex flex-col shadow-xl transition-all duration-300 ${isFullscreen ? 'max-w-4xl h-[90vh]' : 'max-w-md h-[70vh]'}`}>
-                    <ChatHeader isEnglish={isEnglish} language={language} changeLanguage={changeLanguage} isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} onClose={onClose} startNewConversation={startNewConversation} messageCount={messages.length} userMessageCount={userMessageCount} sessionLimitReached={sessionLimitReached} onUserInfoClick={() => setIsUserInfoModalOpen(true)} userInfo={userInfo} />
+                    <ChatHeader isEnglish={isEnglish} language={language} changeLanguage={changeLanguage} isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} onClose={onClose} startNewConversation={startNewConversation} messageCount={messages.length} userInfo={userInfo} updateUserInfo={updateUserInfo} sessionLimitReached={sessionLimitReached} />
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
                         {messages.length === 0 ? (
@@ -70,36 +82,43 @@ const ChatBotModal = ({ isOpen, onClose }) => {
                                     {isEnglish ? "Describe your symptoms and get AI-powered medical insights." : "صف أعراضك واحصل على رؤى طبية مدعومة بالذكاء الاصطناعي."}
                                 </p>
 
-                                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg max-w-xs">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                        <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                                            {isEnglish ? "Get Started" : "ابدأ الآن"}
-                                        </span>
+                                {!userInfo.age && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                                        <p className="text-blue-700">
+                                            {isEnglish ?
+                                                `💡 For better analysis, please provide your age, gender and main symptoms in your first message. For Example : I am 25 years old male with headache and fever for 2 days.` :
+                                                `للحصول على تحليل أفضل، يُرجى ذكر عمرك وجنسك والأعراض الرئيسية في رسالتك الأولى. على سبيل المثال: أنا رجل عمري 25 سنة أعاني من صداع وحُمّى منذ يومين.`
+                                            }
+                                        </p>
                                     </div>
-                                    <p className="text-xs text-blue-700 dark:text-blue-400">
-                                        {isEnglish
-                                            ? "Update your patient information for accurate medical advice."
-                                            : "قم بتحديث معلومات المريض للحصول على نصائح طبية دقيقة."
-                                        }
-                                    </p>
-                                    <button onClick={() => setIsUserInfoModalOpen(true)} className="mt-2 w-full px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition">
-                                        {isEnglish ? "Update Info" : "تحديث المعلومات"}
-                                    </button>
-                                </div>
+                                )}
                             </div>
                         ) : (
-                            messages.map((message) => (
-                                <MessageBubble key={message.id} message={message} isEnglish={isEnglish} />
-                            ))
+                            <>
+                                {messages.map((message) => (
+                                    <MessageBubble key={message.id} message={message} isEnglish={isEnglish} copiedMessageId={copiedMessageId} handleCopy={handleCopy} />
+                                ))}
+
+                                {messages.length > 1 && (
+                                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                        <p className="text-red-700 text-xs font-medium">
+                                            ⚠️ {isEnglish ?
+                                                "This AI system may not always be accurate. Do not take its responses as professional medical advice." :
+                                                "هذا النظام الذكي قد لا يكون دقيقًا دائمًا. لا تعتمد على ردوده كاستشارة طبية مهنية."
+                                            }
+                                        </p>
+                                    </div>
+                                )}
+                            </>
                         )}
 
                         {sessionLimitReached && (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                                <p className="text-yellow-700 font-medium text-sm">
-                                    {isEnglish ? "You've reached the chat limit for this session. Please start a new one to continue." : "لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة."}
+                            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                                <p className="text-yellow-700 text-sm">
+                                    {isEnglish ?
+                                        "You've reached the chat limit for this session. Please start a new one to continue." :
+                                        "لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة."
+                                    }
                                 </p>
                             </div>
                         )}
@@ -118,13 +137,11 @@ const ChatBotModal = ({ isOpen, onClose }) => {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    <ChatInput inputText={inputText} setInputText={setInputText} isEnglish={isEnglish} autoResizeTextarea={autoResizeTextarea} handleSendMessage={handleSendMessage} setIsVoiceModalOpen={setIsVoiceModalOpen} sendMessageMutation={sendMessageMutation} textareaRef={textareaRef} sessionLimitReached={sessionLimitReached} />
+                    <ChatInput inputText={inputText} setInputText={setInputText} isEnglish={isEnglish} autoResizeTextarea={autoResizeTextarea} handleSendMessage={handleSendMessage} setIsVoiceModalOpen={setIsVoiceModalOpen} sendMessageMutation={sendMessageMutation} textareaRef={textareaRef} sessionLimitReached={sessionLimitReached}/>
                 </div>
             </div>
 
             <VoiceInputModal isOpen={isVoiceModalOpen} onClose={() => setIsVoiceModalOpen(false)} onTextConverted={handleVoiceTextConverted} />
-
-            <UserInfoModal isOpen={isUserInfoModalOpen} onClose={() => setIsUserInfoModalOpen(false)} userInfo={userInfo} onUpdate={updateUserInfo} />
         </div>
     );
 };

@@ -160,8 +160,8 @@ const useMedicalAssistant = () => {
 
     if (!currentHasBasicInfo && !hasAskedForInfo) {
       const infoPrompt = isEnglish
-        ? "To provide you with the most accurate medical analysis, could you please share your age, gender, and main symptoms? For example: 'I am 25 years old male with headache and fever for 2 days.'"
-        : "لتقديم تحليل طبي دقيق، هل يمكنك مشاركة عمرك وجنسك والأعراض الرئيسية؟ على سبيل المثال: 'أنا رجل عمري 25 سنة أعاني من صداع وحمى لمدة يومين.'";
+        ? `To provide you with the most accurate medical analysis, could you please share your age, gender, and main symptoms? <b>For Example : 'I am 25 years old male with headache and fever for 2 days.'</b>`
+        : `لتقديم تحليل طبي دقيق، هل يمكنك مشاركة عمرك وجنسك والأعراض الرئيسية؟ <b>على سبيل المثال: 'أنا رجل عمري 25 سنة أعاني من صداع وحمى لمدة يومين.'</b>`;
 
       setResponse(infoPrompt);
       setHasAskedForInfo(true);

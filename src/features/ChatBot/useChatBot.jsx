@@ -174,8 +174,8 @@ export const useChatBot = () => {
 
     if (!currentHasBasicInfo && !hasAskedForInfo) {
       const infoPrompt = isEnglish
-        ? "To provide you with the most accurate medical analysis, could you please share your age, gender, and main symptoms? For example: 'I am 25 years old male with headache and fever for 2 days.'"
-        : "لتقديم تحليل طبي دقيق، هل يمكنك مشاركة عمرك وجنسك والأعراض الرئيسية؟ على سبيل المثال: 'أنا رجل عمري 25 سنة أعاني من صداع وحمى لمدة يومين.'";
+        ? `To provide you with the most accurate medical analysis, could you please share your age, gender, and main symptoms? <b>For Example : 'I am 25 years old male with headache and fever for 2 days.'</b>`
+        : `لتقديم تحليل طبي دقيق، هل يمكنك مشاركة عمرك وجنسك والأعراض الرئيسية؟ <b>على سبيل المثال: 'أنا رجل عمري 25 سنة أعاني من صداع وحمى لمدة يومين.'</b>`;
 
       const newMessages = [
         { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
@@ -185,23 +185,6 @@ export const useChatBot = () => {
       setMessages(prev => [...prev, ...newMessages]);
       setHasAskedForInfo(true);
       setInputText("");
-      return;
-    }
-
-    if (!currentHasBasicInfo && hasAskedForInfo && hasNewInfo) {
-      const missingInfoPrompt = isEnglish
-        ? "Thank you for the information. I notice some details are still missing, but I'll analyze your symptoms based on what you've provided. For more accurate results, please include your age, gender, and specific symptoms."
-        : "شكرًا لك على المعلومات. ألاحظ أن بعض التفاصيل لا تزال مفقودة، لكنني سأحلل أعراضك بناءً على ما قدمته. للحصول على نتائج أكثر دقة، يرجى تضمين عمرك وجنسك وأعراضك المحددة.";
-
-      const newMessages = [
-        { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
-        { id: Date.now() + 1, text: missingInfoPrompt, sender: "bot", timestamp: new Date().toLocaleTimeString() }
-      ];
-
-      setMessages(prev => [...prev, ...newMessages]);
-      setInputText("");
-
-      sendMessageMutation.mutate(inputText);
       return;
     }
 

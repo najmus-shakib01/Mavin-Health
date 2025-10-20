@@ -1,23 +1,16 @@
 import { useMutation } from "@tanstack/react-query";
 import { marked } from "marked";
 import { apiKey, baseUrl } from "../../constants/env.constants";
-import { cornerCases } from "../../constants/env.cornercase";
 import { useLanguage } from "../../contexts/LanguageContext";
-import { useSession } from "../../contexts/SessionContext";
 import { formatResponseWithSources } from "../../utils/sourceExtractor";
 
 const useApiCommunication = (setResponse, responseDivRef) => {
     const { language } = useLanguage();
-    const { userInfo } = useSession();
 
     const sendMessageMutation = useMutation({
-        mutationFn: async (userMessage, { retry = 0 } = {}) => {
+        mutationFn: async ({ userMessage, systemPrompt }, { retry = 0 } = {}) => {
             try {
-                const languageSpecificPrompt = language === 'english'
-                    ? `${cornerCases}\n\nPatient Context: ${userInfo.age ? `Age: ${userInfo.age}` : 'Age not provided'}, ${userInfo.gender ? `Gender: ${userInfo.gender}` : 'Gender not provided'}, ${userInfo.symptoms ? `Symptoms: ${userInfo.symptoms}` : 'Symptoms not provided'}. Please respond in English only and include 2-3 credible medical sources in [Source: Organization - URL] format.`
-                    : `${cornerCases}\n\nسياق المريض: ${userInfo.age ? `العمر: ${userInfo.age}` : 'العمر غير مقدم'}, ${userInfo.gender ? `الجنس: ${userInfo.gender}` : 'الجنس غير مقدم'}, ${userInfo.symptoms ? `الأعراض: ${userInfo.symptoms}` : 'الأعراض غير مقدم'}. يرجى الرد باللغة العربية فقط وتضمين 2-3 مصادر طبية موثوقة بتنسيق [Source: Organization - URL].`;
-
-                console.log('Sending request with prompt:', languageSpecificPrompt); // Debug log
+                console.log('Sending request with system prompt:', systemPrompt);
 
                 const response = await fetch(`${baseUrl}/completions`, {
                     method: "POST",
@@ -28,7 +21,7 @@ const useApiCommunication = (setResponse, responseDivRef) => {
                     body: JSON.stringify({
                         model: "mistralai/mistral-small-24b-instruct-2501:free",
                         messages: [
-                            { role: "system", content: languageSpecificPrompt },
+                            { role: "system", content: systemPrompt },
                             { role: "user", content: userMessage }
                         ],
                         temperature: 0,
@@ -46,8 +39,8 @@ const useApiCommunication = (setResponse, responseDivRef) => {
                         try {
                             const errorData = await response.json();
                             errorMessage = errorData.error?.message || errorMessage;
-                        } catch {
-                            // Ignore JSON parsing errors
+                        } catch (e) {
+                            console.error("Error parsing error response:", e);
                         }
                     }
 
@@ -63,7 +56,7 @@ const useApiCommunication = (setResponse, responseDivRef) => {
                 if (error.message.includes('429') && retry < 2) {
                     const waitTime = 2000 * (retry + 1);
                     await new Promise(resolve => setTimeout(resolve, waitTime));
-                    return sendMessageMutation.mutateAsync(userMessage, { retry: retry + 1 });
+                    return sendMessageMutation.mutateAsync({ userMessage, systemPrompt }, { retry: retry + 1 });
                 }
                 throw error;
             }

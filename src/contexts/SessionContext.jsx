@@ -11,11 +11,16 @@ export const useSession = () => {
     }
     return context;
 };
-
+    
 export const SessionProvider = ({ children }) => {
     const [messageCount, setMessageCount] = useState(0);
-    const [sessionLimit] = useState(15); 
-    const [userInfo, setUserInfo] = useState({age: '',gender: '',symptoms: '',days: '',medications: '',allergies: ''});
+    const [sessionLimit] = useState(15);
+    const [userInfo, setUserInfo] = useState({
+        age: '',
+        gender: '',
+        duration: '',
+        symptoms: ''
+    });
 
     const incrementMessageCount = useCallback(() => {
         setMessageCount(prev => prev + 1);
@@ -23,19 +28,18 @@ export const SessionProvider = ({ children }) => {
 
     const resetSession = useCallback(() => {
         setMessageCount(0);
-        setUserInfo({age: '',gender: '',symptoms: '',days: '',medications: '',allergies: ''});
+        setUserInfo({ age: '', gender: '', duration: '', symptoms: '' });
     }, []);
 
     const updateUserInfo = useCallback((newInfo) => {
         setUserInfo(prev => ({ ...prev, ...newInfo }));
     }, []);
 
-    const hasBasicInfo = useCallback(() => {
-        return userInfo.age && userInfo.gender && userInfo.symptoms;
+    const hasRequiredInfo = useCallback(() => {
+        return userInfo.age && userInfo.gender && userInfo.duration;
     }, [userInfo]);
 
-    const value = {messageCount,sessionLimit,sessionLimitReached: messageCount >= sessionLimit,incrementMessageCount,resetSession,userInfo,updateUserInfo,hasBasicInfo
-    };
+    const value = { messageCount, sessionLimit, sessionLimitReached: messageCount >= sessionLimit, incrementMessageCount, resetSession, userInfo, updateUserInfo, hasRequiredInfo };
 
     return (
         <SessionContext.Provider value={value}>

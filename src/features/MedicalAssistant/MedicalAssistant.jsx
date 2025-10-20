@@ -36,7 +36,7 @@ const MedicalAssistantContent = () => {
         <div className="bg-white shadow-2xl rounded-2xl overflow-hidden dark:bg-gray-900">
           <Header />
           <div className="p-6 dark:bg-gray-800">
-            <AssistantTab userInput={userInput} setUserInput={setUserInput} response={response} responseDivRef={responseDivRef} isProcessing={isProcessing} handleSendMessage={handleSendMessage} handleKeyDown={handleKeyDown} textareaRef={textareaRef} autoResizeTextarea={autoResizeTextarea} startNewConversation={startNewConversation} userInfo={userInfo} updateUserInfo={updateUserInfo}/>
+            <AssistantTab userInput={userInput} setUserInput={setUserInput} response={response || ""} responseDivRef={responseDivRef} isProcessing={isProcessing} handleSendMessage={handleSendMessage} handleKeyDown={handleKeyDown} textareaRef={textareaRef} autoResizeTextarea={autoResizeTextarea} startNewConversation={startNewConversation} userInfo={userInfo} updateUserInfo={updateUserInfo} />
           </div>
         </div>
       </div>

@@ -1,23 +1,23 @@
 import { useCallback, useRef, useState } from "react";
+import { cornerCases } from "../../constants/env.cornercase";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useSession } from "../../contexts/SessionContext";
 import useApiCommunication from "./useApiCommunication";
+import useApiMedicalValidation from "./useApiMedicalValidation";
 import useEmergencyDetection from "./useEmergencyDetection";
-import useMedicalValidation from "./useMedicalValidation";
 
 const useMedicalAssistant = () => {
   const [userInput, setUserInput] = useState("");
   const [response, setResponse] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastRequestTime, setLastRequestTime] = useState(0);
-  const [hasAskedForInfo, setHasAskedForInfo] = useState(false);
   const responseDivRef = useRef(null);
   const { isEnglish, isArabic } = useLanguage();
 
-  const { sessionLimitReached, incrementMessageCount, resetSession, userInfo, updateUserInfo, hasBasicInfo } = useSession();
+  const { sessionLimitReached, incrementMessageCount, resetSession, userInfo, updateUserInfo } = useSession();
 
   const { detectEmergency } = useEmergencyDetection();
-  const { isMedicalQuestion } = useMedicalValidation();
+  const { validateMedicalQuestion } = useApiMedicalValidation();
 
   const { sendMessageMutation } = useApiCommunication(
     setResponse,
@@ -27,13 +27,102 @@ const useMedicalAssistant = () => {
   );
 
   const autoResizeTextarea = useCallback((textareaRef) => {
-    if (textareaRef.current) {
+    if (textareaRef?.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   }, []);
 
+  const extractUserInfoFromMessage = useCallback((message) => {
+    const lowerMessage = message.toLowerCase();
+
+    const ageMatch = message.match(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/i);
+    const age = ageMatch ? ageMatch[1] : '';
+
+    let gender = '';
+    if (lowerMessage.includes('male') || lowerMessage.includes('man') || lowerMessage.includes('رجل') || lowerMessage.includes('ذكر') || lowerMessage.includes('gentleman') || lowerMessage.includes('boy')) {
+      gender = 'male';
+    } else if (lowerMessage.includes('female') || lowerMessage.includes('woman') || lowerMessage.includes('أنثى') || lowerMessage.includes('فتاة') || lowerMessage.includes('lady') || lowerMessage.includes('girl')) {
+      gender = 'female';
+    }
+
+    let duration = '';
+    const durationMatch = message.match(/(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/i);
+    if (durationMatch) {
+      duration = durationMatch[0];
+    }
+
+    let symptoms = '';
+    if (message.length > 10) {
+      symptoms = message
+        .replace(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/gi, '')
+        .replace(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة|boy|girl)/gi, '')
+        .replace(/(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    return { age, gender, duration, symptoms };
+  }, []);
+
+  const hasRequiredInfo = useCallback(() => {
+    return userInfo?.age && userInfo?.gender && userInfo?.duration;
+  }, [userInfo]);
+
+  const getMissingInfo = useCallback(() => {
+    const missing = [];
+    if (!userInfo?.age) missing.push(isEnglish ? 'age' : 'العمر');
+    if (!userInfo?.gender) missing.push(isEnglish ? 'gender' : 'الجنس');
+    if (!userInfo?.duration) missing.push(isEnglish ? 'how long you\'ve been having this problem' : 'المدة التي تعاني منها من هذه المشكلة');
+    return missing;
+  }, [userInfo, isEnglish]);
+
+  const generateSystemPrompt = useCallback((userMessage) => {
+    const extractedInfo = extractUserInfoFromMessage(userMessage);
+    const hasNewInfo = extractedInfo.age || extractedInfo.gender || extractedInfo.duration || extractedInfo.symptoms;
+
+    if (hasNewInfo) {
+      updateUserInfo(extractedInfo);
+    }
+
+    const currentHasRequiredInfo = hasRequiredInfo();
+    const missingInfo = getMissingInfo();
+
+    if (!currentHasRequiredInfo) {
+      if (missingInfo.length === 3) {
+        return isEnglish
+          ? "The user is asking a medical question but hasn't provided required information. Respond with: 'Please Brother, if you mention these three things — your age, gender, and how long you've been having this problem — then I can help you properly.'"
+          : "يطرح المستخدم سؤالاً طبياً لكنه لم يقدم المعلومات المطلوبة. رد بـ: 'من فضلك أخي، إذا ذكرت هذه الأشياء الثلاثة - عمرك، جنسك، والمدة التي تعاني منها من هذه المشكلة - فسأتمكن من مساعدتك بشكل صحيح.'";
+      }
+      else if (missingInfo.length > 0) {
+        const missingText = missingInfo.join(isEnglish ? ' and ' : ' و ');
+        return isEnglish
+          ? `The user provided some information but is missing: ${missingText}. Respond by asking specifically for: ${missingText}.`
+          : `قدم المستخدم بعض المعلومات لكنه يفتقد: ${missingText}. رد بطلب: ${missingText} بشكل محدد.`;
+      }
+    } else if (currentHasRequiredInfo && (!extractedInfo.symptoms || extractedInfo.symptoms.length < 10)) {
+      return isEnglish
+        ? "The user has provided age, gender, and duration. Now ask them to share their symptoms in detail. Respond with: 'Thank you brother, now please share your symptoms in detail.'"
+        : "قدم المستخدم العمر والجنس والمدة. الآن اطلب منهم مشاركة أعراضهم بالتفصيل. رد بـ: 'شكراً لك أخي، الآن يرجى مشاركة أعراضك بالتفصيل.'";
+    }
+
+    const languageSpecificPrompt = isEnglish
+      ? `${cornerCases}\n\nPatient Context: Age: ${userInfo?.age || 'not provided'}, Gender: ${userInfo?.gender || 'not provided'}, Duration: ${userInfo?.duration || 'not provided'}, Symptoms: ${userInfo?.symptoms || 'not provided'}. Please respond in English only and include SPECIALIST_RECOMMENDATION: [specialist name] in your response.`
+      : `${cornerCases}\n\nسياق المريض: العمر: ${userInfo?.age || 'غير مقدم'}, الجنس: ${userInfo?.gender || 'غير مقدم'}, المدة: ${userInfo?.duration || 'غير مقدم'}, الأعراض: ${userInfo?.symptoms || 'غير مقدم'}. يرجى الرد باللغة العربية فقط وتضمين SPECIALIST_RECOMMENDATION : [specialist name] في ردك.`;
+
+    return languageSpecificPrompt;
+  }, [userInfo, isEnglish, hasRequiredInfo, getMissingInfo, extractUserInfoFromMessage, updateUserInfo]);
+
   const verifyLanguage = useCallback((text) => {
+    if (!text) {
+      return {
+        valid: false,
+        message: isEnglish
+          ? "<span style='color:red'>Please enter a question.</span>"
+          : "<span style='color:red'>يرجى إدخال سؤال.</span>"
+      };
+    }
+
     const hasEnglish = /[a-zA-Z]/.test(text);
     const hasArabic = /[\u0600-\u06FF]/.test(text);
 
@@ -67,31 +156,6 @@ const useMedicalAssistant = () => {
     return { valid: true };
   }, [isEnglish, isArabic]);
 
-  const extractUserInfoFromMessage = useCallback((message) => {
-    const lowerMessage = message.toLowerCase();
-
-    const ageMatch = message.match(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/i);
-    const age = ageMatch ? ageMatch[1] : '';
-
-    let gender = '';
-    if (lowerMessage.includes('male') || lowerMessage.includes('man') || lowerMessage.includes('رجل') || lowerMessage.includes('ذكر') || lowerMessage.includes('gentleman')) {
-      gender = 'male';
-    } else if (lowerMessage.includes('female') || lowerMessage.includes('woman') || lowerMessage.includes('أنثى') || lowerMessage.includes('فتاة') || lowerMessage.includes('lady')) {
-      gender = 'female';
-    }
-
-    let symptoms = '';
-    if (message.length > 10) {
-      symptoms = message
-        .replace(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/gi, '')
-        .replace(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة)/gi, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-    }
-
-    return { age, gender, symptoms };
-  }, []);
-
   const handleSendMessage = useCallback(async () => {
     const now = Date.now();
     const timeSinceLastRequest = now - lastRequestTime;
@@ -105,19 +169,12 @@ const useMedicalAssistant = () => {
       return;
     }
 
-    if (!userInput.trim() || isProcessing || sessionLimitReached) return;
+    if (!userInput?.trim() || isProcessing || sessionLimitReached) return;
 
     setIsProcessing(true);
     setLastRequestTime(now);
     const userMessage = userInput.trim();
     setUserInput("");
-
-    const extractedInfo = extractUserInfoFromMessage(userMessage);
-    const hasNewInfo = extractedInfo.age || extractedInfo.gender || extractedInfo.symptoms;
-
-    if (hasNewInfo) {
-      updateUserInfo(extractedInfo);
-    }
 
     const languageVerification = verifyLanguage(userMessage);
     if (!languageVerification.valid) {
@@ -146,46 +203,36 @@ const useMedicalAssistant = () => {
       return;
     }
 
-    if (!isMedicalQuestion(userMessage)) {
-      const errorResponse = isEnglish
-        ? "I specialize only in medical diagnosis and disease detection queries. Please ask about health symptoms or medical conditions."
-        : "أتخصص فقط في استفسارات التشخيص الطبي واكتشاف الأمراض. يرجى السؤال عن أعراض الصحية أو الحالات الطبية.";
+    try {
+      const isMedical = await validateMedicalQuestion(userMessage);
 
-      setResponse(errorResponse);
-      setIsProcessing(false);
-      return;
-    }
+      if (!isMedical) {
+        const nonMedicalMessage = isEnglish
+          ? "Sorry, I don't answer non-medical questions. You can only share medical-related questions with me."
+          : "عذرًا، لا أجيب على الأسئلة غير الطبية. يمكنك فقط مشاركة الأسئلة المتعلقة بالطب معي.";
 
-    const currentHasBasicInfo = hasBasicInfo();
-
-    if (!currentHasBasicInfo && !hasAskedForInfo) {
-      const infoPrompt = isEnglish
-        ? `To provide you with the most accurate medical analysis, could you please share your age, gender, and main symptoms? <b>For Example : 'I am 25 years old male with headache and fever for 2 days.'</b>`
-        : `لتقديم تحليل طبي دقيق، هل يمكنك مشاركة عمرك وجنسك والأعراض الرئيسية؟ <b>على سبيل المثال: 'أنا رجل عمري 25 سنة أعاني من صداع وحمى لمدة يومين.'</b>`;
-
-      setResponse(infoPrompt);
-      setHasAskedForInfo(true);
-      setIsProcessing(false);
-      return;
-    }
-
-    if (!currentHasBasicInfo && hasAskedForInfo && hasNewInfo) {
-      const missingInfoPrompt = isEnglish
-        ? "Thank you for the information. I notice some details are still missing, but I'll analyze your symptoms based on what you've provided. For more accurate results, please include your age, gender, and specific symptoms."
-        : "شكرًا لك على المعلومات. ألاحظ أن بعض التفاصيل لا تزال مفقودة، لكنني سأحلل أعراضك بناءً على ما قدمته. للحصول على نتائج أكثر دقة، يرجى تضمين عمرك وجنسك وأعراضك المحددة.";
-
-      setResponse(missingInfoPrompt);
+        setResponse(nonMedicalMessage);
+        setIsProcessing(false);
+        return;
+      }
+    } catch (error) {
+      console.error("Medical validation error:", error);
     }
 
     try {
       setResponse(isEnglish
-        ? "🔄 Analyzing your symptoms..."
-        : "🔄 جاري تحليل الأعراض..."
+        ? "🔄 Processing your request..."
+        : "🔄 جاري معالجة طلبك..."
       );
 
       incrementMessageCount();
 
-      await sendMessageMutation.mutateAsync(userMessage);
+      const systemPrompt = generateSystemPrompt(userMessage);
+
+      await sendMessageMutation.mutateAsync({
+        userMessage,
+        systemPrompt
+      });
     } catch (error) {
       console.error("Error sending message:", error);
       const errorMessage = isEnglish
@@ -196,10 +243,9 @@ const useMedicalAssistant = () => {
       setIsProcessing(false);
     }
   }, [
-    userInput, isProcessing, verifyLanguage, detectEmergency, isMedicalQuestion,
+    userInput, isProcessing, verifyLanguage, detectEmergency,
     sendMessageMutation, isEnglish, lastRequestTime, sessionLimitReached,
-    hasBasicInfo, incrementMessageCount, extractUserInfoFromMessage,
-    updateUserInfo, hasAskedForInfo
+    incrementMessageCount, generateSystemPrompt, validateMedicalQuestion
   ]);
 
   const handleKeyDown = useCallback((event) => {
@@ -210,10 +256,15 @@ const useMedicalAssistant = () => {
   }, [handleSendMessage]);
 
   const startNewConversation = useCallback(() => {
-    setResponse(""); setUserInput(""); setLastRequestTime(0); setHasAskedForInfo(false); resetSession();
+    setResponse("");
+    setUserInput("");
+    setLastRequestTime(0);
+    resetSession();
   }, [resetSession]);
 
-  return { userInput, setUserInput, response, responseDivRef, isProcessing, handleSendMessage, handleKeyDown, autoResizeTextarea, startNewConversation, userInfo };
+  return {
+    userInput: userInput || "", setUserInput, response: response || "", responseDivRef, isProcessing, handleSendMessage, handleKeyDown, autoResizeTextarea, startNewConversation, userInfo: userInfo || {}
+  };
 };
 
 export default useMedicalAssistant;

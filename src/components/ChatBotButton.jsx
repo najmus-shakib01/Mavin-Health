@@ -6,7 +6,7 @@ const ChatBotButton = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div>
+    <>
       <button onClick={() => setIsOpen(true)} className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300" aria-label="Open ChatBot">
         <FaComments className="text-xl" />
         <span className="absolute -top-1 -right-1 flex h-5 w-5">
@@ -15,7 +15,7 @@ const ChatBotButton = () => {
         </span>
       </button>
       <ChatBotModal isOpen={isOpen} onClose={() => setIsOpen(false)} />
-    </div>
+    </>
   );
 };
 

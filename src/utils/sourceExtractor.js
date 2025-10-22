@@ -1,27 +1,34 @@
-export const trustedMedicalDomains = ['who.int', 'cdc.gov', 'mayoclinic.org', 'nih.gov', 'nhlbi.nih.gov', 'niams.nih.gov', 'nimh.nih.gov', 'medlineplus.gov', 'heart.org', 'cancer.org', 'hopkinsmedicine.org', 'clevelandclinic.org', 'webmd.com', 'healthline.com', 'medicalnewstoday.com', 'nhs.uk', 'aafp.org', 'acog.org', 'apa.org', 'diabetes.org'
+export const trustedMedicalDomains = [
+    'who.int', 'cdc.gov', 'mayoclinic.org', 'nih.gov', 'medlineplus.gov',
+    'heart.org', 'cancer.org', 'hopkinsmedicine.org', 'clevelandclinic.org',
+    'webmd.com', 'healthline.com', 'nhs.uk', 'aafp.org', 'diabetes.org'
 ];
 
-export const trustedArabicDomains = ['who.int/ar', 'mayoclinic.org/ar', 'webteb.com', 'altibbi.com', 'magltk.com', 'dailymedicalinfo.com'];
+const trustedBaseUrls = {
+    'who.int': 'https://www.who.int/health-topics/',
+    'cdc.gov': 'https://www.cdc.gov/',
+    'mayoclinic.org': 'https://www.mayoclinic.org/diseases-conditions/',
+    'nih.gov': 'https://www.nih.gov/health-information/',
+    'webmd.com': 'https://www.webmd.com/',
+    'healthline.com': 'https://www.healthline.com/health/',
+    'nhs.uk': 'https://www.nhs.uk/conditions/'
+};
+
+const conditionSearchMap = {
+    'sore throat': 'sore-throat', 'pharyngitis': 'pharyngitis', 'headache': 'headache',
+    'fever': 'fever', 'cough': 'cough', 'influenza': 'influenza', 'flu': 'flu',
+    'covid': 'coronavirus', 'depression': 'depression', 'anxiety': 'anxiety',
+    'diabetes': 'diabetes', 'hypertension': 'high-blood-pressure', 'asthma': 'asthma',
+    'arthritis': 'arthritis', 'migraine': 'migraine-headache', 'allergy': 'allergies',
+    'pneumonia': 'pneumonia', 'bronchitis': 'bronchitis', 'gastritis': 'gastritis'
+};
 
 export const validateUrl = (url) => {
     try {
         const urlObj = new URL(url);
-
-        const isTrustedDomain = trustedMedicalDomains.some(domain =>
-            urlObj.hostname.includes(domain)
-        ) || trustedArabicDomains.some(domain =>
-            url.includes(domain)
-        );
-
-        if (!isTrustedDomain) {
-            console.warn('URL from untrusted domain:', url);
-            return false;
-        }
-
-        return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-    } catch (error) {
-        console.warn('Invalid URL format:', url);
-        console.error('error:', error);
+        const isTrusted = trustedMedicalDomains.some(domain => urlObj.hostname.includes(domain));
+        return isTrusted && (urlObj.protocol === 'http:' || urlObj.protocol === 'https:');
+    } catch {
         return false;
     }
 };
@@ -39,38 +46,92 @@ export const extractSourcesFromResponse = (response) => {
 
         if (parts.length >= 2) {
             const name = parts.slice(0, -1).join(' - ').trim();
-            const url = parts[parts.length - 1].trim();
+            const originalUrl = parts[parts.length - 1].trim();
 
-            if (validateUrl(url)) {
-                sources.push({
-                    name: name,
-                    url: url,
-                    valid: true
-                });
-            } else {
-                console.warn('Invalid or untrusted URL:', url);
-                const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name + ' medical information')}`;
-                sources.push({
-                    name: name,
-                    url: searchUrl,
-                    valid: true,
-                    isSearch: true
-                });
-            }
+            sources.push(createSourceObject(name, originalUrl, response));
         }
     }
 
     return sources;
 };
 
-export const extractSpecialistFromResponse = (response) => {
-    if (!response) return null;
-
-    const specialistMatch = response.match(/SPECIALIST_RECOMMENDATION:\s*([^\n]+)/i);
-    if (specialistMatch && specialistMatch[1]) {
-        return specialistMatch[1].trim();
+const createSourceObject = (name, originalUrl, response) => {
+    if (validateUrl(originalUrl)) {
+        const validatedUrl = validateAndFixUrl(originalUrl, name, response);
+        return {
+            name,
+            url: validatedUrl,
+            valid: true,
+            isSearch: validatedUrl.includes('google.com/search')
+        };
+    } else {
+        return {
+            name,
+            url: generateSearchUrl(name, response),
+            valid: true,
+            isSearch: true
+        };
     }
+};
+
+const validateAndFixUrl = (originalUrl, sourceName, response) => {
+    try {
+        const urlObj = new URL(originalUrl);
+        const pathParts = urlObj.pathname.split('/').filter(part => part.length > 0);
+
+        if (pathParts.length > 4) {
+            return generateBaseDomainUrl(urlObj.hostname, response) || originalUrl;
+        }
+
+        return originalUrl;
+    } catch {
+        return generateSearchUrl(sourceName, response);
+    }
+};
+
+const generateBaseDomainUrl = (hostname, response) => {
+    const domain = trustedMedicalDomains.find(domain => hostname.includes(domain));
+    const condition = extractMedicalCondition(response);
+
+    if (domain && trustedBaseUrls[domain] && condition) {
+        const searchTerm = conditionSearchMap[condition.toLowerCase()];
+        if (searchTerm) {
+            switch (domain) {
+                case 'who.int': return `https://www.who.int/health-topics/${searchTerm}`;
+                case 'mayoclinic.org': return `https://www.mayoclinic.org/diseases-conditions/${searchTerm}`;
+                case 'cdc.gov': return `https://www.cdc.gov/${searchTerm}`;
+                case 'webmd.com': return `https://www.webmd.com/${searchTerm}`;
+                case 'healthline.com': return `https://www.healthline.com/health/${searchTerm}`;
+                case 'nhs.uk': return `https://www.nhs.uk/conditions/${searchTerm}`;
+                default: return trustedBaseUrls[domain];
+            }
+        }
+        return trustedBaseUrls[domain];
+    }
+
     return null;
+};
+
+const extractMedicalCondition = (response) => {
+    const conditions = Object.keys(conditionSearchMap);
+    const lowerResponse = response.toLowerCase();
+    return conditions.find(condition => lowerResponse.includes(condition.toLowerCase())) || null;
+};
+
+const generateSearchUrl = (sourceName, response) => {
+    const condition = extractMedicalCondition(response) || 'medical information';
+    let searchQuery = condition;
+
+    if (sourceName.toLowerCase().includes('who')) searchQuery += ' site:who.int';
+    else if (sourceName.toLowerCase().includes('cdc')) searchQuery += ' site:cdc.gov';
+    else if (sourceName.toLowerCase().includes('mayo')) searchQuery += ' site:mayoclinic.org';
+
+    return `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
+};
+
+export const extractSpecialistFromResponse = (response) => {
+    const specialistMatch = response?.match(/SPECIALIST_RECOMMENDATION:\s*([^\n]+)/i);
+    return specialistMatch?.[1]?.trim() || null;
 };
 
 export const formatResponseWithSources = (response, isArabic = false) => {
@@ -84,43 +145,45 @@ export const formatResponseWithSources = (response, isArabic = false) => {
         .replace(/SPECIALIST_RECOMMENDATION:\s*[^\n]+/i, '')
         .trim();
 
-    let sourcesSection = '';
-    if (sources.length > 0) {
-        const sourcesHeader = isArabic ? "📚 المراجع الطبية:" : "📚 Medical References:";
-        const verifiedText = isArabic ? "مصادر موثوقة" : "Verified sources";
-
-        const sourcesList = sources.map(source => {
-            if (source.isSearch) {
-                return `<a href="${source.url}" target="_blank" rel="noopener noreferrer" 
-                        class="text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 underline transition-colors duration-200">
-                    • ${source.name} (Search)
-                </a>`;
-            }
-            return `<a href="${source.url}" target="_blank" rel="noopener noreferrer" 
-                    class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline transition-colors duration-200">
-                • ${source.name}
-            </a>`;
-        }).join('<br>');
-
-        sourcesSection = `
-        <div class="mt-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-            <strong class="text-blue-800 dark:text-blue-300 text-sm">${sourcesHeader}</strong>
-            <div class="mt-2 space-y-1 text-sm">${sourcesList}</div>
-            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2">${verifiedText}</p>
-        </div>`;
-    }
-
-    let specialistSection = '';
-    if (specialist) {
-        const specialistHeader = isArabic ? "👨‍⚕️ الأخصائي الموصى به:" : "👨‍⚕️ Recommended Specialist:";
-        specialistSection = `
-        <div class="mt-4 bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
-            <strong class="text-green-800 dark:text-green-300 text-sm">${specialistHeader}</strong>
-            <p class="text-green-700 dark:text-green-400 text-sm mt-1">${specialist}</p>
-        </div>`;
-    }
+    const sourcesSection = generateSourcesSection(sources, isArabic);
+    const specialistSection = generateSpecialistSection(specialist, isArabic);
 
     return `${cleanResponse}${specialistSection}${sourcesSection}`;
+};
+
+const generateSourcesSection = (sources, isArabic) => {
+    if (sources.length === 0) return '';
+
+    const sourcesHeader = isArabic ? "📚 المراجع الطبية:" : "📚 Medical References:";
+    const verifiedText = isArabic ? "مصادر موثوقة" : "Verified sources";
+
+    const sourcesList = sources.map(source => `
+    <a href="${source.url}" target="_blank" rel="noopener noreferrer" 
+       class="${source.isSearch ? 'text-orange-600 hover:text-orange-800' : 'text-blue-600 hover:text-blue-800'} 
+              dark:${source.isSearch ? 'text-orange-400 hover:text-orange-300' : 'text-blue-400 hover:text-blue-300'} 
+              underline transition-colors duration-200">
+      • ${source.name}${source.isSearch ? ' (Search Medical Information)' : ''}
+    </a>
+  `).join('<br>');
+
+    return `
+    <div class="mt-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+      <strong class="text-blue-800 dark:text-blue-300 text-sm">${sourcesHeader}</strong>
+      <div class="mt-2 space-y-1 text-sm">${sourcesList}</div>
+      <p class="text-xs text-blue-600 dark:text-blue-400 mt-2">${verifiedText}</p>
+    </div>`;
+};
+
+const generateSpecialistSection = (specialist, isArabic) => {
+    if (!specialist) return '';
+
+    const specialistHeader = isArabic ? "👨‍⚕️ الأخصائي الموصى به:" : "👨‍⚕️ Recommended Specialist:";
+
+    return `
+    <div class="mt-4 bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+      <strong class="text-green-800 dark:text-green-300 text-sm">${specialistHeader}</strong>
+      <p class="text-green-700 dark:text-green-400 text-sm mt-1">${specialist}</p>
+    </div>`;
 };
 
 export const cleanAIResponse = (response) => {
@@ -131,10 +194,5 @@ export const cleanAIResponse = (response) => {
         /⚠️ هذا النظام الذكي قد لا يكون دقيقًا دائمًا\. لا تعتمد على ردوده كاستشارة طبية مهنية\./gi
     ];
 
-    let cleanedResponse = response;
-    disclaimerPatterns.forEach(pattern => {
-        cleanedResponse = cleanedResponse.replace(pattern, '');
-    });
-
-    return cleanedResponse.trim();
+    return disclaimerPatterns.reduce((acc, pattern) => acc.replace(pattern, ''), response).trim();
 };

@@ -6,21 +6,67 @@ body {
     @apply bg-[whitesmoke] dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-200;
     scroll-behavior: smooth;
     cursor: context-menu;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 
-.prose [class*="bg-gray-100"], [class*="bg-blue-600"] {
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  cursor: default;
+.prose [class*="bg-gray-100"], 
+[class*="bg-blue-600"],
+.chat-message,
+.message-bubble,
+.ai-response,
+.bot-message,
+.response-content {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    cursor: default !important;
+}
+
+#response,
+.response-section,
+.medical-response {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    cursor: default !important;
+}
+
+textarea,
+input,
+[contenteditable="true"] {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    cursor: text !important;
 }
 
 .prose a {
     @apply text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline transition-colors;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
 }
 
 a[target="_blank"]::after {
     content: " ↗";
     @apply text-xs;
+}
+
+.chat-message,
+.message-bubble,
+.ai-response,
+.bot-message {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }

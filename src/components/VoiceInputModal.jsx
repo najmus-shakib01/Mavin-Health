@@ -9,7 +9,6 @@ const VoiceInputModal = ({ isOpen, onClose, onTextConverted }) => {
   const [interimTranscript, setInterimTranscript] = useState("");
   const [permissionDenied, setPermissionDenied] = useState(false);
   const { isEnglish } = useLanguage();
-
   const recognitionRef = useRef(null);
 
   useEffect(() => {
@@ -18,9 +17,7 @@ const VoiceInputModal = ({ isOpen, onClose, onTextConverted }) => {
       setInterimTranscript("");
       setIsListening(false);
       setPermissionDenied(false);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
+      recognitionRef.current?.stop();
     }
   }, [isOpen]);
 
@@ -44,16 +41,10 @@ const VoiceInputModal = ({ isOpen, onClose, onTextConverted }) => {
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const text = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          tempFinal += text + " ";
-        } else {
-          tempInterim += text;
-        }
+        event.results[i].isFinal ? (tempFinal += text + " ") : (tempInterim += text);
       }
 
-      if (tempFinal) {
-        setFinalTranscript((prev) => prev + tempFinal);
-      }
+      if (tempFinal) setFinalTranscript(prev => prev + tempFinal);
       setInterimTranscript(tempInterim);
     };
 
@@ -64,9 +55,7 @@ const VoiceInputModal = ({ isOpen, onClose, onTextConverted }) => {
       }
     };
 
-    recognition.onend = () => {
-      setIsListening(false);
-    };
+    recognition.onend = () => setIsListening(false);
 
     recognition.start();
     setIsListening(true);
@@ -74,21 +63,19 @@ const VoiceInputModal = ({ isOpen, onClose, onTextConverted }) => {
   };
 
   const stopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
+    recognitionRef.current?.stop();
     setIsListening(false);
   };
 
   const handleInsertText = () => {
     const text = (finalTranscript + " " + interimTranscript).trim();
-    if (text) {
-      onTextConverted(text);
-    }
+    if (text) onTextConverted(text);
     onClose();
   };
 
   if (!isOpen) return null;
+
+  const transcriptText = (finalTranscript + interimTranscript).trim();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -103,55 +90,63 @@ const VoiceInputModal = ({ isOpen, onClose, onTextConverted }) => {
         </div>
 
         {permissionDenied ? (
-          <div className="text-center py-8">
-            <FaMicrophoneSlash className="h-16 w-16 mx-auto text-red-500 mb-4" />
-            <h3 className="text-lg font-semibold text-red-600 mb-2 dark:text-red-400">
-              {isEnglish ? "Microphone Permission Denied" : "تم رفض إذن الميكروفون"}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
-              {isEnglish ? "Please allow microphone access in your browser settings to use voice input." : "يرجى السماح بالوصول إلى الميكروفون في إعدادات المتصفح لاستخدام الإدخال الصوتي."}
-            </p>
-            <button onClick={onClose} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-              {isEnglish ? "OK" : "موافق"}
-            </button>
-          </div>
+          <PermissionDeniedView isEnglish={isEnglish} onClose={onClose} />
         ) : (
-          <>
-            <div className="text-center mb-6">
-              <button onClick={isListening ? stopListening : startListening} className={`p-6 rounded-full text-white text-2xl transition-all ${isListening ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-blue-500 hover:bg-blue-600"}`}>
-                {isListening ? <FaMicrophoneSlash /> : <FaMicrophone />}
-              </button>
-              <p className="mt-3 text-gray-600 dark:text-gray-300">
-                {isListening ? isEnglish ? "Listening..." : "جاري الاستماع..." : isEnglish ? "Click to start speaking" : "انقر للبدء في التحدث"}
-              </p>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {isEnglish ? "Transcript:" : "النص:"}
-              </label>
-              <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 min-h-[100px] max-h-[200px] overflow-y-auto bg-gray-50 dark:bg-gray-700">
-                {(finalTranscript + interimTranscript).trim() || (
-                  <p className="text-gray-400 italic">
-                    {isEnglish ? "Start speaking to see transcript here..." : "ابدأ التحدث لرؤية النص هنا..."}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition dark:border-gray-600 dark:text-gray-300">
-                {isEnglish ? "Cancel" : "إلغاء"}
-              </button>
-              <button onClick={handleInsertText} disabled={!(finalTranscript + interimTranscript).trim()} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
-                {isEnglish ? "Insert Text" : "إدراج النص"}
-              </button>
-            </div>
-          </>
+          <VoiceInputView isListening={isListening} isEnglish={isEnglish} transcriptText={transcriptText} startListening={startListening} stopListening={stopListening} handleInsertText={handleInsertText} onClose={onClose} />
         )}
       </div>
     </div>
   );
 };
+
+const PermissionDeniedView = ({ isEnglish, onClose }) => (
+  <div className="text-center py-8">
+    <FaMicrophoneSlash className="h-16 w-16 mx-auto text-red-500 mb-4" />
+    <h3 className="text-lg font-semibold text-red-600 mb-2 dark:text-red-400">
+      {isEnglish ? "Microphone Permission Denied" : "تم رفض إذن الميكروفون"}
+    </h3>
+    <p className="text-gray-600 dark:text-gray-300 mb-4">
+      {isEnglish ? "Please allow microphone access in your browser settings to use voice input." : "يرجى السماح بالوصول إلى الميكروفون في إعدادات المتصفح لاستخدام الإدخال الصوتي."}
+    </p>
+    <button onClick={onClose} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+      {isEnglish ? "OK" : "موافق"}
+    </button>
+  </div>
+);
+
+const VoiceInputView = ({ isListening, isEnglish, transcriptText, startListening, stopListening, handleInsertText, onClose }) => (
+  <>
+    <div className="text-center mb-6">
+      <button onClick={isListening ? stopListening : startListening} className={`p-6 rounded-full text-white text-2xl transition-all ${isListening ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-blue-500 hover:bg-blue-600"}`}>
+        {isListening ? <FaMicrophoneSlash /> : <FaMicrophone />}
+      </button>
+      <p className="mt-3 text-gray-600 dark:text-gray-300">
+        {isListening ? (isEnglish ? "Listening..." : "جاري الاستماع...") : (isEnglish ? "Click to start speaking" : "انقر للبدء في التحدث")}
+      </p>
+    </div>
+
+    <div className="mb-6">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        {isEnglish ? "Transcript:" : "النص:"}
+      </label>
+      <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 min-h-[100px] max-h-[200px] overflow-y-auto bg-gray-50 dark:bg-gray-700">
+        {transcriptText || (
+          <p className="text-gray-400 italic">
+            {isEnglish ? "Start speaking to see transcript here..." : "ابدأ التحدث لرؤية النص هنا..."}
+          </p>
+        )}
+      </div>
+    </div>
+
+    <div className="flex gap-3">
+      <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition dark:border-gray-600 dark:text-gray-300">
+        {isEnglish ? "Cancel" : "إلغاء"}
+      </button>
+      <button onClick={handleInsertText} disabled={!transcriptText} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
+        {isEnglish ? "Insert Text" : "إدراج النص"}
+      </button>
+    </div>
+  </>
+);
 
 export default VoiceInputModal;

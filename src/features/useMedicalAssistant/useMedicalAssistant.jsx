@@ -15,59 +15,42 @@ const useMedicalAssistant = () => {
   const { isEnglish, isArabic } = useLanguage();
 
   const { sessionLimitReached, incrementMessageCount, resetSession, userInfo, updateUserInfo } = useSession();
-
   const { detectEmergency } = useEmergencyDetection();
   const { validateMedicalQuestion } = useApiMedicalValidation();
-
-  const { sendMessageMutation } = useApiCommunication(
-    setResponse,
-    responseDivRef,
-    [],
-    () => { }
-  );
+  const { sendMessageMutation } = useApiCommunication(setResponse, responseDivRef);
 
   const autoResizeTextarea = useCallback((textareaRef) => {
-    if (textareaRef?.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
+    textareaRef?.current && (textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`);
   }, []);
 
   const extractUserInfoFromMessage = useCallback((message) => {
-    const lowerMessage = message.toLowerCase();
-
     const ageMatch = message.match(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/i);
-    const age = ageMatch ? ageMatch[1] : '';
-
-    let gender = '';
-    if (lowerMessage.includes('male') || lowerMessage.includes('man') || lowerMessage.includes('رجل') || lowerMessage.includes('ذكر') || lowerMessage.includes('gentleman') || lowerMessage.includes('boy')) {
-      gender = 'male';
-    } else if (lowerMessage.includes('female') || lowerMessage.includes('woman') || lowerMessage.includes('أنثى') || lowerMessage.includes('فتاة') || lowerMessage.includes('lady') || lowerMessage.includes('girl')) {
-      gender = 'female';
-    }
-
-    let duration = '';
+    const genderMatch = message.match(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة)/i);
     const durationMatch = message.match(/(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/i);
-    if (durationMatch) {
-      duration = durationMatch[0];
-    }
 
-    let symptoms = '';
+    return {
+      age: ageMatch?.[1] || '',
+      gender: genderMatch?.[1]?.toLowerCase() || '',
+      duration: durationMatch?.[0] || '',
+      symptoms: extractSymptoms(message)
+    };
+  }, []);
+
+  const extractSymptoms = (message) => {
     if (message.length > 10) {
-      symptoms = message
+      return message
         .replace(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/gi, '')
-        .replace(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة|boy|girl)/gi, '')
+        .replace(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة)/gi, '')
         .replace(/(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/gi, '')
         .replace(/\s+/g, ' ')
         .trim();
     }
+    return '';
+  };
 
-    return { age, gender, duration, symptoms };
-  }, []);
-
-  const hasRequiredInfo = useCallback(() => {
-    return userInfo?.age && userInfo?.gender && userInfo?.duration;
-  }, [userInfo]);
+  const hasRequiredInfo = useCallback(() =>
+    userInfo?.age && userInfo?.gender && userInfo?.duration
+    , [userInfo]);
 
   const getMissingInfo = useCallback(() => {
     const missing = [];
@@ -81,91 +64,57 @@ const useMedicalAssistant = () => {
     const extractedInfo = extractUserInfoFromMessage(userMessage);
     const hasNewInfo = extractedInfo.age || extractedInfo.gender || extractedInfo.duration || extractedInfo.symptoms;
 
-    if (hasNewInfo) {
-      updateUserInfo(extractedInfo);
-    }
+    if (hasNewInfo) updateUserInfo(extractedInfo);
 
     const currentHasRequiredInfo = hasRequiredInfo();
     const missingInfo = getMissingInfo();
 
-    if (!currentHasRequiredInfo) {
-      if (missingInfo.length === 3) {
-        return isEnglish
-          ? "The user is asking a medical question but hasn't provided required information. Respond with: 'Please Brother, if you mention these three things — your age, gender, and how long you've been having this problem — then I can help you properly.'"
-          : "يطرح المستخدم سؤالاً طبياً لكنه لم يقدم المعلومات المطلوبة. رد بـ: 'من فضلك أخي، إذا ذكرت هذه الأشياء الثلاثة - عمرك، جنسك، والمدة التي تعاني منها من هذه المشكلة - فسأتمكن من مساعدتك بشكل صحيح.'";
-      }
-      else if (missingInfo.length > 0) {
-        const missingText = missingInfo.join(isEnglish ? ' and ' : ' و ');
-        return isEnglish
-          ? `The user provided some information but is missing: ${missingText}. Respond by asking specifically for: ${missingText}.`
-          : `قدم المستخدم بعض المعلومات لكنه يفتقد: ${missingText}. رد بطلب: ${missingText} بشكل محدد.`;
-      }
-    } else if (currentHasRequiredInfo && (!extractedInfo.symptoms || extractedInfo.symptoms.length < 10)) {
+    if (!currentHasRequiredInfo) return generateMissingInfoPrompt(missingInfo, isEnglish);
+    if (currentHasRequiredInfo && (!extractedInfo.symptoms || extractedInfo.symptoms.length < 10)) {
       return isEnglish
-        ? "The user has provided age, gender, and duration. Now ask them to share their symptoms in detail. Respond with: 'Thank you brother, now please share your symptoms in detail.'"
-        : "قدم المستخدم العمر والجنس والمدة. الآن اطلب منهم مشاركة أعراضهم بالتفصيل. رد بـ: 'شكراً لك أخي، الآن يرجى مشاركة أعراضك بالتفصيل.'";
+        ? "The user has provided age, gender, and duration. Now ask them to share their symptoms in detail."
+        : "قدم المستخدم العمر والجنس والمدة. الآن اطلب منهم مشاركة أعراضهم بالتفصيل.";
     }
 
-    const languageSpecificPrompt = isEnglish
-      ? `${cornerCases}\n\nPatient Context: Age: ${userInfo?.age || 'not provided'}, Gender: ${userInfo?.gender || 'not provided'}, Duration: ${userInfo?.duration || 'not provided'}, Symptoms: ${userInfo?.symptoms || 'not provided'}. Please respond in English only and include SPECIALIST_RECOMMENDATION: [specialist name] in your response.`
-      : `${cornerCases}\n\nسياق المريض: العمر: ${userInfo?.age || 'غير مقدم'}, الجنس: ${userInfo?.gender || 'غير مقدم'}, المدة: ${userInfo?.duration || 'غير مقدم'}, الأعراض: ${userInfo?.symptoms || 'غير مقدم'}. يرجى الرد باللغة العربية فقط وتضمين SPECIALIST_RECOMMENDATION : [specialist name] في ردك.`;
-
-    return languageSpecificPrompt;
+    return generateMedicalPrompt(userInfo, isEnglish);
   }, [userInfo, isEnglish, hasRequiredInfo, getMissingInfo, extractUserInfoFromMessage, updateUserInfo]);
 
-  const verifyLanguage = useCallback((text) => {
-    if (!text) {
-      return {
-        valid: false,
-        message: isEnglish
-          ? "<span style='color:red'>Please enter a question.</span>"
-          : "<span style='color:red'>يرجى إدخال سؤال.</span>"
-      };
+  const generateMissingInfoPrompt = (missingInfo, isEnglish) => {
+    if (missingInfo.length === 3) {
+      return isEnglish
+        ? "Ask for age, gender, and duration before providing medical advice."
+        : "اطلب العمر والجنس والمدة قبل تقديم النصيحة الطبية.";
     }
+    const missingText = missingInfo.join(isEnglish ? ' and ' : ' و ');
+    return isEnglish
+      ? `Ask specifically for: ${missingText}`
+      : `اطلب بشكل محدد: ${missingText}`;
+  };
+
+  const generateMedicalPrompt = (userInfo, isEnglish) => {
+    const context = `Age: ${userInfo?.age || 'not provided'}, Gender: ${userInfo?.gender || 'not provided'}, Duration: ${userInfo?.duration || 'not provided'}, Symptoms: ${userInfo?.symptoms || 'not provided'}`;
+    return isEnglish
+      ? `${cornerCases}\n\nPatient Context: ${context}. Respond in English with SPECIALIST_RECOMMENDATION.`
+      : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION.`;
+  };
+
+  const verifyLanguage = useCallback((text) => {
+    if (!text) return { valid: false, message: isEnglish ? "<span style='color:red'>Please enter a question.</span>" : "<span style='color:red'>يرجى إدخال سؤال.</span>" };
 
     const hasEnglish = /[a-zA-Z]/.test(text);
     const hasArabic = /[\u0600-\u06FF]/.test(text);
 
-    if (isEnglish && hasArabic) {
-      return {
-        valid: false,
-        message: isEnglish
-          ? "<span style='color:red'>Please ask your question in English. You selected English language.</span>"
-          : "<span style='color:red'>يرجى طرح سؤالك باللغة العربية. لقد حددت اللغة العربية.</span>"
-      };
-    }
-
-    if (isArabic && hasEnglish) {
-      return {
-        valid: false,
-        message: isEnglish
-          ? "<span style='color:red'>Please ask your question in Arabic. You selected Arabic language.</span>"
-          : "<span style='color:red'>يرجى طرح سؤالك باللغة الإنجليزية. لقد حددت اللغة الإنجليزية.</span>"
-      };
-    }
-
-    if (!hasEnglish && !hasArabic) {
-      return {
-        valid: false,
-        message: isEnglish
-          ? "<span style='color:red'>I only accept questions in English or Arabic. Please ask in one of these languages.</span>"
-          : "<span style='color:red'>أقبل الأسئلة باللغة الإنجليزية أو العربية فقط. يرجى السؤال بإحدى هذه اللغات.</span>"
-      };
-    }
+    if (isEnglish && hasArabic) return { valid: false, message: "<span style='color:red'>Please ask in English.</span>" };
+    if (isArabic && hasEnglish) return { valid: false, message: "<span style='color:red'>يرجى السؤال بالعربية.</span>" };
+    if (!hasEnglish && !hasArabic) return { valid: false, message: isEnglish ? "<span style='color:red'>I only accept questions in English or Arabic.</span>" : "<span style='color:red'>أقبل الأسئلة بالإنجليزية أو العربية فقط.</span>" };
 
     return { valid: true };
   }, [isEnglish, isArabic]);
 
   const handleSendMessage = useCallback(async () => {
     const now = Date.now();
-    const timeSinceLastRequest = now - lastRequestTime;
-
-    if (timeSinceLastRequest < 2000) {
-      const waitMessage = isEnglish
-        ? `<span style='color:orange'>⏳ Please wait ${Math.ceil((2000 - timeSinceLastRequest) / 1000)} seconds before sending another request.</span>`
-        : `<span style='color:orange'>⏳ يرجى الانتظار ${Math.ceil((2000 - timeSinceLastRequest) / 1000)} ثوانٍ قبل إرسال طلب آخر.</span>`;
-
-      setResponse(waitMessage);
+    if (now - lastRequestTime < 2000) {
+      setResponse(isEnglish ? "<span style='color:orange'>⏳ Please wait a moment...</span>" : "<span style='color:orange'>⏳ يرجى الانتظار لحظة...</span>");
       return;
     }
 
@@ -184,34 +133,15 @@ const useMedicalAssistant = () => {
     }
 
     if (detectEmergency(userMessage)) {
-      const emergencyResponse = isEnglish
-        ? `<span style="color:red; font-weight:bold;">
-            ⚠️ EMERGENCY ALERT! You may be experiencing a serious medical condition. 
-            ➡️ Please go to the nearest hospital immediately or call emergency services.
-            📞 Call your local emergency number (e.g., 999 in Bangladesh, 911 in USA, 112 in EU).  
-            🏥 Use Google Maps to search for "nearest hospital" if needed.
-          </span>`
-        : `<span style="color:red; font-weight:bold;">
-            ⚠️ تنبيه طوارئ! قد تكون تعاني من حالة طبية خطيرة.
-            ➡️ يرجى التوجه إلى أقرب مستشفى فورًا أو الاتصال بخدمات الطوارئ.
-            📞 اتصل برقم الطوارئ المحلي (مثل 999 في بنغلاديش، 911 في الولايات المتحدة، 112 في الاتحاد الأوروبي).
-            🏥 استخدم خرائط Google للبحث عن "أقرب مستشفى" إذا لزم الأمر.
-          </span>`;
-
-      setResponse(emergencyResponse);
+      setResponse(generateEmergencyResponse(isEnglish));
       setIsProcessing(false);
       return;
     }
 
     try {
       const isMedical = await validateMedicalQuestion(userMessage);
-
       if (!isMedical) {
-        const nonMedicalMessage = isEnglish
-          ? "Sorry, I don't answer non-medical questions. You can only share medical-related questions with me."
-          : "عذرًا، لا أجيب على الأسئلة غير الطبية. يمكنك فقط مشاركة الأسئلة المتعلقة بالطب معي.";
-
-        setResponse(nonMedicalMessage);
+        setResponse(isEnglish ? "Sorry, I don't answer non-medical questions. You can only share medical-related questions with me." : "عذرًا، لا أجيب على التكاليف غير الطبية. يمكنك فقط مشاركة التكاليف الطبية معي.");
         setIsProcessing(false);
         return;
       }
@@ -220,33 +150,17 @@ const useMedicalAssistant = () => {
     }
 
     try {
-      setResponse(isEnglish
-        ? "🔄 Processing your request..."
-        : "🔄 جاري معالجة طلبك..."
-      );
-
+      setResponse(isEnglish ? "🔄 Processing your request..." : "🔄 جاري معالجة طلبك...");
       incrementMessageCount();
 
       const systemPrompt = generateSystemPrompt(userMessage);
-
-      await sendMessageMutation.mutateAsync({
-        userMessage,
-        systemPrompt
-      });
+      await sendMessageMutation.mutateAsync({ userMessage, systemPrompt });
     } catch (error) {
-      console.error("Error sending message:", error);
-      const errorMessage = isEnglish
-        ? `<span style="color:red">Error: ${error.message}</span>`
-        : `<span style="color:red">خطأ: ${error.message}</span>`;
-      setResponse(errorMessage);
+      setResponse(generateErrorMessage(error, isEnglish));
     } finally {
       setIsProcessing(false);
     }
-  }, [
-    userInput, isProcessing, verifyLanguage, detectEmergency,
-    sendMessageMutation, isEnglish, lastRequestTime, sessionLimitReached,
-    incrementMessageCount, generateSystemPrompt, validateMedicalQuestion
-  ]);
+  }, [userInput, isProcessing, verifyLanguage, detectEmergency, sendMessageMutation, isEnglish, lastRequestTime, sessionLimitReached, incrementMessageCount, generateSystemPrompt, validateMedicalQuestion]);
 
   const handleKeyDown = useCallback((event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -263,8 +177,23 @@ const useMedicalAssistant = () => {
   }, [resetSession]);
 
   return {
-    userInput: userInput || "", setUserInput, response: response || "", responseDivRef, isProcessing, handleSendMessage, handleKeyDown, autoResizeTextarea, startNewConversation, userInfo: userInfo || {}
+    userInput: userInput || "", setUserInput, response: response || "", responseDivRef, isProcessing,
+    handleSendMessage, handleKeyDown, autoResizeTextarea, startNewConversation, userInfo: userInfo || {}
   };
+};
+
+const generateEmergencyResponse = (isEnglish) => isEnglish
+  ? `<span style="color:red; font-weight:bold;">⚠️ EMERGENCY ALERT! Please go to the nearest hospital immediately.</span>`
+  : `<span style="color:red; font-weight:bold;">⚠️ تنبيه طوارئ! يرجى التوجه إلى أقرب مستشفى فورًا.</span>`;
+
+const generateErrorMessage = (error, isEnglish) => {
+  if (error.message.includes('429')) return isEnglish
+    ? "<span style='color:orange'>⚠️ Too many requests. Please wait and try again.</span>"
+    : "<span style='color:orange'>⚠️ عدد الطلبات كبير. يرجى الانتظار والمحاولة مرة أخرى.</span>";
+
+  return isEnglish
+    ? `<span style="color:red">Error: ${error.message}</span>`
+    : `<span style="color:red">خطأ: ${error.message}</span>`;
 };
 
 export default useMedicalAssistant;

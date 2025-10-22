@@ -6,25 +6,16 @@ const SessionContext = createContext();
 // eslint-disable-next-line react-refresh/only-export-components
 export const useSession = () => {
     const context = useContext(SessionContext);
-    if (!context) {
-        throw new Error('useSession must be used within a SessionProvider');
-    }
+    if (!context) throw new Error('useSession must be used within a SessionProvider');
     return context;
 };
-    
+
 export const SessionProvider = ({ children }) => {
     const [messageCount, setMessageCount] = useState(0);
     const [sessionLimit] = useState(15);
-    const [userInfo, setUserInfo] = useState({
-        age: '',
-        gender: '',
-        duration: '',
-        symptoms: ''
-    });
+    const [userInfo, setUserInfo] = useState({ age: '', gender: '', duration: '', symptoms: '' });
 
-    const incrementMessageCount = useCallback(() => {
-        setMessageCount(prev => prev + 1);
-    }, []);
+    const incrementMessageCount = useCallback(() => setMessageCount(prev => prev + 1), []);
 
     const resetSession = useCallback(() => {
         setMessageCount(0);
@@ -35,9 +26,9 @@ export const SessionProvider = ({ children }) => {
         setUserInfo(prev => ({ ...prev, ...newInfo }));
     }, []);
 
-    const hasRequiredInfo = useCallback(() => {
-        return userInfo.age && userInfo.gender && userInfo.duration;
-    }, [userInfo]);
+    const hasRequiredInfo = useCallback(() =>
+        userInfo.age && userInfo.gender && userInfo.duration
+        , [userInfo]);
 
     const value = { messageCount, sessionLimit, sessionLimitReached: messageCount >= sessionLimit, incrementMessageCount, resetSession, userInfo, updateUserInfo, hasRequiredInfo };
 

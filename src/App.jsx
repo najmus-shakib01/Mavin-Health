@@ -11,7 +11,7 @@ const queryClient = new QueryClient();
 
 const App = () => {
   return (
-    <ErrorBoundary>
+    <ErrorBoundary> 
       <LanguageProvider>
         <SessionProvider>
           <QueryClientProvider client={queryClient}>

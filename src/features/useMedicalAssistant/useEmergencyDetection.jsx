@@ -1,19 +1,17 @@
 import { useCallback } from "react";
 
 const useEmergencyDetection = () => {
-    const detectEmergency = useCallback((text) => {
-        const emergencyKeywords = [
-            'chest pain', 'heart attack', 'stroke', 'bleeding heavily',
-            'cannot breathe', 'difficulty breathing', 'unconscious',
-            'severe pain', 'suicide', 'kill myself', 'ألم في الصدر',
-            'نوبة قلبية', 'سكتة دماغية', 'نزيف حاد', 'صعوبة في التنفس'
-        ];
-        return emergencyKeywords.some(keyword =>
-            text.toLowerCase().includes(keyword.toLowerCase())
-        );
-    }, []);
+  const detectEmergency = useCallback((text) => {
+    const emergencyKeywords = [
+      'chest pain', 'heart attack', 'stroke', 'bleeding heavily',
+      'cannot breathe', 'difficulty breathing', 'unconscious',
+      'severe pain', 'suicide', 'kill myself', 'ألم في الصدر',
+      'نوبة قلبية', 'سكتة دماغية', 'نزيف حاد', 'صعوبة في التنفس'
+    ];
+    return emergencyKeywords.some(keyword => text.toLowerCase().includes(keyword.toLowerCase()));
+  }, []);
 
-    return { detectEmergency };
+  return { detectEmergency };
 };
 
 export default useEmergencyDetection;

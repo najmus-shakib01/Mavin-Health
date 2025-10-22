@@ -11,7 +11,6 @@ import { useStreamHandler } from "./useStreamHandler";
 export const useChatBot = () => {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
-  const [copiedMessageId] = useState(null);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEmergencyAlert, setShowEmergencyAlert] = useState(false);
@@ -23,40 +22,33 @@ export const useChatBot = () => {
   const { validateMedicalQuestion } = useApiMedicalValidation();
 
   const extractUserInfoFromMessage = useCallback((message) => {
-    const lowerMessage = message.toLowerCase();
-
     const ageMatch = message.match(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/i);
-    const age = ageMatch ? ageMatch[1] : '';
-
-    let gender = '';
-    if (lowerMessage.includes('male') || lowerMessage.includes('man') || lowerMessage.includes('رجل') || lowerMessage.includes('ذكر') || lowerMessage.includes('gentleman') || lowerMessage.includes('boy')) {
-      gender = 'male';
-    } else if (lowerMessage.includes('female') || lowerMessage.includes('woman') || lowerMessage.includes('أنثى') || lowerMessage.includes('فتاة') || lowerMessage.includes('lady') || lowerMessage.includes('girl')) {
-      gender = 'female';
-    }
-
-    let duration = '';
+    const genderMatch = message.match(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة|boy|girl)/i);
     const durationMatch = message.match(/(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/i);
-    if (durationMatch) {
-      duration = durationMatch[0];
-    }
 
-    let symptoms = '';
+    return {
+      age: ageMatch ? ageMatch[1] : '',
+      gender: genderMatch ? genderMatch[1].toLowerCase() : '',
+      duration: durationMatch ? durationMatch[0] : '',
+      symptoms: extractSymptoms(message)
+    };
+  }, []);
+
+  const extractSymptoms = (message) => {
     if (message.length > 10) {
-      symptoms = message
+      return message
         .replace(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/gi, '')
         .replace(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة|boy|girl)/gi, '')
         .replace(/(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/gi, '')
         .replace(/\s+/g, ' ')
         .trim();
     }
+    return '';
+  };
 
-    return { age, gender, duration, symptoms };
-  }, []);
-
-  const hasRequiredInfo = useCallback(() => {
-    return userInfo.age && userInfo.gender && userInfo.duration;
-  }, [userInfo]);
+  const hasRequiredInfo = useCallback(() =>
+    userInfo.age && userInfo.gender && userInfo.duration
+    , [userInfo]);
 
   const getMissingInfo = useCallback(() => {
     const missing = [];
@@ -78,96 +70,65 @@ export const useChatBot = () => {
     const missingInfo = getMissingInfo();
 
     if (!currentHasRequiredInfo) {
-      if (missingInfo.length === 3) {
-        return isEnglish
-          ? "The user is asking a medical question but hasn't provided required information. Respond with: 'Please Brother, if you mention these three things — your age, gender, and how long you've been having this problem — then I can help you properly.'"
-          : "يطرح المستخدم سؤالاً طبياً لكنه لم يقدم المعلومات المطلوبة. رد بـ: 'من فضلك أخي، إذا ذكرت هذه الأشياء الثلاثة - عمرك، جنسك، والمدة التي تعاني منها من هذه المشكلة - فسأتمكن من مساعدتك بشكل صحيح.'";
-      }
+      return generateMissingInfoPrompt(missingInfo, isEnglish);
+    }
 
-      else if (missingInfo.length > 0) {
-        const missingText = missingInfo.join(isEnglish ? ' and ' : ' و ');
-        return isEnglish
-          ? `The user provided some information but is missing: ${missingText}. Respond by asking specifically for: ${missingText}.`
-          : `قدم المستخدم بعض المعلومات لكنه يفتقد: ${missingText}. رد بطلب: ${missingText} بشكل محدد.`;
-      }
-    } else if (currentHasRequiredInfo && (!extractedInfo.symptoms || extractedInfo.symptoms.length < 10)) {
+    if (currentHasRequiredInfo && (!extractedInfo.symptoms || extractedInfo.symptoms.length < 10)) {
       return isEnglish
         ? "The user has provided age, gender, and duration. Now ask them to share their symptoms in detail. Respond with: 'Thank you brother, now please share your symptoms in detail.'"
         : "قدم المستخدم العمر والجنس والمدة. الآن اطلب منهم مشاركة أعراضهم بالتفصيل. رد بـ: 'شكراً لك أخي، الآن يرجى مشاركة أعراضك بالتفصيل.'";
     }
 
-    const languageSpecificPrompt = language === 'english'
-      ? `${cornerCases}\n\nPatient Context: Age: ${userInfo.age}, Gender: ${userInfo.gender}, Duration: ${userInfo.duration}, Symptoms: ${userInfo.symptoms}. Please respond in English only and include SPECIALIST_RECOMMENDATION: [specialist name] in your response.`
-      : `${cornerCases}\n\nسياق المريض: العمر: ${userInfo.age}, الجنس: ${userInfo.gender}, المدة: ${userInfo.duration}, الأعراض: ${userInfo.symptoms}. يرجى الرد باللغة العربية فقط وتضمين SPECIALIST_RECOMMENDATION : [specialist name] في ردك.`;
+    return generateMedicalPrompt(userInfo, isEnglish);
+  }, [userInfo, isEnglish, hasRequiredInfo, getMissingInfo, extractUserInfoFromMessage, updateUserInfo]);
 
-    return languageSpecificPrompt;
-  }, [userInfo, isEnglish, language, hasRequiredInfo, getMissingInfo, extractUserInfoFromMessage, updateUserInfo]);
+  const generateMissingInfoPrompt = (missingInfo, isEnglish) => {
+    if (missingInfo.length === 3) {
+      return isEnglish
+        ? "Ask for age, gender, and duration before providing medical advice."
+        : "اطلب العمر والجنس والمدة قبل تقديم النصيحة الطبية.";
+    }
+    const missingText = missingInfo.join(isEnglish ? ' and ' : ' و ');
+    return isEnglish
+      ? `Ask specifically for: ${missingText}`
+      : `اطلب بشكل محدد: ${missingText}`;
+  };
+
+  const generateMedicalPrompt = (userInfo, isEnglish) => {
+    const context = `Age: ${userInfo?.age || 'not provided'}, Gender: ${userInfo?.gender || 'not provided'}, Duration: ${userInfo?.duration || 'not provided'}, Symptoms: ${userInfo?.symptoms || 'not provided'}`;
+    return isEnglish
+      ? `${cornerCases}\n\nPatient Context: ${context}. Respond in English with SPECIALIST_RECOMMENDATION.`
+      : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION.`;
+  };
+
 
   const sendMessageMutation = useMutation({
     mutationFn: async (inputText) => {
-      if (sessionLimitReached) {
-        throw new Error("Session limit reached");
-      }
+      if (sessionLimitReached) throw new Error("Session limit reached");
 
       const isMedical = await validateMedicalQuestion(inputText);
-
-      if (!isMedical) {
-        throw new Error("NON_MEDICAL_QUESTION");
-      }
+      if (!isMedical) throw new Error("NON_MEDICAL_QUESTION");
 
       const systemPrompt = generateSystemPrompt(inputText);
-
       const response = await fetch(`${baseUrl}/completions`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "mistralai/mistral-small-24b-instruct-2501:free",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: inputText },
-          ],
-          temperature: 0,
-          stream: true,
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: inputText }],
+          temperature: 0, stream: true,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-      return {
-        stream: response.body,
-        language: language
-      };
+      return { stream: response.body, language: language };
     },
     onSuccess: (data) => {
       incrementMessageCount();
       streamHandler.processStream(data);
     },
-    onError: (error) => {
-      if (error.message === "NON_MEDICAL_QUESTION") {
-        const nonMedicalMessage = isEnglish
-          ? "Sorry, I don't answer non-medical questions. You can only share medical-related questions with me."
-          : "عذرًا، لا أجيب على الأسئلة غير الطبية. يمكنك فقط مشاركة الأسئلة المتعلقة بالطب معي.";
-
-        setMessages(prev => [
-          ...prev,
-          { id: Date.now(), text: nonMedicalMessage, sender: "bot", timestamp: new Date().toLocaleTimeString() }
-        ]);
-      } else {
-        const errorMessage = isArabic
-          ? `<span style="color:red">خطأ : ${error.message}</span>`
-          : `<span style="color:red">Error : ${error.message}</span>`;
-
-        setMessages(prev => [
-          ...prev,
-          { id: Date.now(), text: errorMessage, sender: "bot", timestamp: new Date().toLocaleTimeString() }
-        ]);
-      }
-    },
+    onError: (error) => handleSendMessageError(error, isEnglish, setMessages),
   });
 
   const handleSendMessage = useCallback(async () => {
@@ -175,89 +136,78 @@ export const useChatBot = () => {
 
     const languageVerification = verifyLanguage(inputText, isEnglish, isArabic);
     if (!languageVerification.valid) {
-      const newMessages = [
-        { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
-        { id: Date.now() + 1, text: languageVerification.message, sender: "bot", timestamp: new Date().toLocaleTimeString() }
-      ];
-
-      setMessages(prev => [...prev, ...newMessages]);
+      addMessagePair(inputText, languageVerification.message, setMessages);
       setInputText("");
       return;
     }
 
     if (detectEmergency(inputText)) {
-      const emergencyResponse = isEnglish
-        ? `
-            <span style="color:red; font-weight:bold;">
-              ⚠️ EMERGENCY ALERT! You may be experiencing a serious medical condition. 
-              ➡️ Please go to the nearest hospital immediately or call emergency services.
-              📞 Call your local emergency number (e.g., 999 in Bangladesh, 911 in USA, 112 in EU).  
-              🏥 Use Google Maps to search for "nearest hospital" if needed.
-            </span>
-          `
-        : `
-            <span style="color:red; font-weight:bold;">
-              ⚠️ تنبيه طوارئ! قد تكون تعاني من حالة طبية خطيرة.
-              ➡️ يرجى التوجه إلى أقرب مستشفى فورًا أو الاتصال بخدمات الطوارئ.
-              📞 اتصل برقم الطوارئ المحلي (مثل 999 في بنغلاديش، 911 في الولايات المتحدة، 112 في الاتحاد الأوروبي).
-              🏥 استخدم خرائط Google للبحث عن "أقرب مستشفى" إذا لزم الأمر.
-            </span>
-          `;
-
-      const newMessages = [
-        { id: Date.now(), text: inputText, sender: "user", timestamp: new Date().toLocaleTimeString() },
-        { id: Date.now() + 1, text: emergencyResponse, sender: "bot", timestamp: new Date().toLocaleTimeString() }
-      ];
-
-      setMessages(prev => [...prev, ...newMessages]);
-      setShowEmergencyAlert(true);
-
-      setTimeout(() => {
-        setShowEmergencyAlert(false);
-      }, 10000);
-
+      handleEmergencySituation(inputText, isEnglish, setMessages, setShowEmergencyAlert);
       setInputText("");
       return;
     }
 
-    const newUserMessage = {
-      id: Date.now(),
-      text: inputText,
-      sender: "user",
-      timestamp: new Date().toLocaleTimeString(),
-    };
+    await processUserMessage(inputText, setMessages, sendMessageMutation, setInputText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputText, isEnglish, isArabic, sendMessageMutation, sessionLimitReached]);
 
+  const handleSendMessageError = (error, isEnglish, setMessages) => {
+    if (error.message === "NON_MEDICAL_QUESTION") {
+      const message = isEnglish
+        ? "Sorry, I don't answer non-medical questions. You can only share medical-related questions with me."
+        : "عذرًا، لا أجيب على التكاليف غير الطبية. يمكنك فقط مشاركة التكاليف الطبية معي.";
+
+      setMessages(prev => [...prev, createBotMessage(message)]);
+    } else {
+      const errorMessage = isArabic
+        ? `<span style="color:red">خطأ : ${error.message}</span>`
+        : `<span style="color:red">Error : ${error.message}</span>`;
+
+      setMessages(prev => [...prev, createBotMessage(errorMessage)]);
+    }
+  };
+
+  const addMessagePair = (userText, botText, setMessages) => {
+    const newMessages = [
+      createUserMessage(userText),
+      createBotMessage(botText)
+    ];
+    setMessages(prev => [...prev, ...newMessages]);
+  };
+
+  const handleEmergencySituation = (inputText, isEnglish, setMessages, setShowEmergencyAlert) => {
+    const emergencyResponse = isEnglish
+      ? `<span style="color:red; font-weight:bold;">⚠️ EMERGENCY ALERT! You may be experiencing a serious medical condition. ➡️ Please go to the nearest hospital immediately or call emergency services. 📞 Call your local emergency number. 🏥 Use Google Maps to search for "nearest hospital" if needed.</span>`
+      : `<span style="color:red; font-weight:bold;">⚠️ تنبيه طوارئ! قد تكون تعاني من حالة طبية خطيرة. ➡️ يرجى التوجه إلى أقرب مستشفى فورًا أو الاتصال بخدمات الطوارئ. 📞 اتصل برقم الطوارئ المحلي. 🏥 استخدم خرائط Google للبحث عن "أقرب مستشفى" إذا لزم الأمر.</span>`;
+
+    addMessagePair(inputText, emergencyResponse, setMessages);
+    setShowEmergencyAlert(true);
+    setTimeout(() => setShowEmergencyAlert(false), 10000);
+  };
+
+  const processUserMessage = async (inputText, setMessages, sendMessageMutation, setInputText) => {
+    const newUserMessage = createUserMessage(inputText);
     setMessages(prev => [...prev, newUserMessage]);
 
-    const loadingMessage = {
-      id: Date.now() + 1,
-      text: isEnglish
-        ? "🔄 Validating your question..."
-        : "🔄 جاري التحقق من سؤالك...",
-      sender: "bot",
-      isStreaming: true,
-      timestamp: new Date().toLocaleTimeString(),
-    };
-
+    const loadingMessage = createBotMessage(
+      isEnglish ? "🔄 Validating your question..." : "🔄 جاري التحقق من سؤالك...",
+      true
+    );
     setMessages(prev => [...prev, loadingMessage]);
 
     sendMessageMutation.mutate(inputText, {
-      onSuccess: () => {
-        setMessages(prev => prev.filter(msg => msg.id !== loadingMessage.id));
-      },
-      onError: () => {
-        setMessages(prev => prev.filter(msg => msg.id !== loadingMessage.id));
-      }
+      onSuccess: () => setMessages(prev => prev.filter(msg => msg.id !== loadingMessage.id)),
+      onError: () => setMessages(prev => prev.filter(msg => msg.id !== loadingMessage.id))
     });
 
     setInputText("");
-  }, [inputText, isEnglish, isArabic, sendMessageMutation, sessionLimitReached]);
+  };
 
-  const startNewConversation = useCallback(() => {
-    setMessages([]);
-    setInputText("");
-    resetSession();
-  }, [resetSession]);
+  const createUserMessage = (text) => ({ id: Date.now(), text, sender: "user", timestamp: new Date().toLocaleTimeString(), });
+
+  const createBotMessage = (text, isStreaming = false) => ({ id: Date.now() + 1, text, sender: "bot", isStreaming, timestamp: new Date().toLocaleTimeString(), });
+
+  const startNewConversation = useCallback(() => { setMessages([]); setInputText(""); resetSession(); }, [resetSession]);
 
   const handleVoiceTextConverted = useCallback((text) => {
     setInputText(prevInput => prevInput + (prevInput ? " " + text : text));
@@ -271,15 +221,13 @@ export const useChatBot = () => {
     }
   }, []);
 
-  const toggleFullscreen = useCallback(() => {
-    setIsFullscreen(!isFullscreen);
-  }, [isFullscreen]);
-
-  const closeEmergencyAlert = useCallback(() => {
-    setShowEmergencyAlert(false);
-  }, []);
+  const toggleFullscreen = useCallback(() => setIsFullscreen(prev => !prev), []);
+  const closeEmergencyAlert = useCallback(() => setShowEmergencyAlert(false), []);
 
   return {
-    messages, inputText, setInputText, copiedMessageId, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, setIsFullscreen, showEmergencyAlert, setShowEmergencyAlert, closeEmergencyAlert, language, changeLanguage, isEnglish, startNewConversation, handleSendMessage, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation, userInfo
+    messages, inputText, setInputText, isVoiceModalOpen, setIsVoiceModalOpen,
+    isFullscreen, showEmergencyAlert, closeEmergencyAlert, language,
+    changeLanguage, isEnglish, handleSendMessage, handleVoiceTextConverted,
+    autoResizeTextarea, toggleFullscreen, sendMessageMutation, startNewConversation, userInfo
   };
 };

@@ -1,12 +1,7 @@
 import { useCallback } from "react";
 
 const useLanguageDetection = () => {
-    const detectLanguage = useCallback((text) => {
-        const hasEnglish = /[a-zA-Z]/.test(text);
-        const hasArabic = /[\u0600-\u06FF]/.test(text);
-        return hasEnglish || hasArabic;
-    }, []);
-
+    const detectLanguage = useCallback((text) => /[a-zA-Z]/.test(text) || /[\u0600-\u06FF]/.test(text), []);
     return { detectLanguage };
 };
 

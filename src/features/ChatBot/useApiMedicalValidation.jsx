@@ -5,28 +5,12 @@ const useApiMedicalValidation = () => {
     const validateMedicalQuestionMutation = useMutation({
         mutationFn: async (userMessage) => {
             const validationPrompt = `
-                Analyze the following user message and determine if it is a medical-related question.
-                
-                MEDICAL QUESTIONS INCLUDE:
-                - Symptoms description (pain, fever, cough, headache, etc.)
-                - Disease or condition inquiries
-                - Medication or treatment questions
-                - Health concerns or medical advice
-                - Medical test or diagnosis questions
-                - Emergency medical situations
-                
-                NON-MEDICAL QUESTIONS INCLUDE:
-                - General knowledge questions
-                - Weather, sports, entertainment
-                - Technical or programming questions
-                - Personal opinions or philosophical questions
-                - Business or financial advice
-                - Any topic not related to health or medicine
-                
-                User Message: "${userMessage}"
-                
-                Respond with ONLY one word: "MEDICAL" or "NON_MEDICAL"
-            `.trim();
+        Analyze this user message and determine if it's medical-related.
+        MEDICAL: symptoms, diseases, treatments, health concerns.
+        NON_MEDICAL: other topics.
+        User Message: "${userMessage}"
+        Respond with ONLY: "MEDICAL" or "NON_MEDICAL"
+      `.trim();
 
             const response = await fetch(`${baseUrl}/completions`, {
                 method: "POST",
@@ -45,14 +29,10 @@ const useApiMedicalValidation = () => {
                 }),
             });
 
-            if (!response.ok) {
-                throw new Error(`Validation API error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`Validation API error! status: ${response.status}`);
 
             const data = await response.json();
-            const validationResult = data.choices[0].message.content.trim().toUpperCase();
-
-            return validationResult === "MEDICAL";
+            return data.choices[0].message.content.trim().toUpperCase() === "MEDICAL";
         },
         onError: (error) => {
             console.error("Medical validation error:", error);
@@ -62,30 +42,18 @@ const useApiMedicalValidation = () => {
 
     const validateMedicalQuestion = async (userMessage) => {
         try {
-            const result = await validateMedicalQuestionMutation.mutateAsync(userMessage);
-            return result;
+            return await validateMedicalQuestionMutation.mutateAsync(userMessage);
         } catch (error) {
             console.error("Validation failed:", error);
-            const hasMedicalKeywords =
-                userMessage.toLowerCase().includes('pain') ||
-                userMessage.toLowerCase().includes('fever') ||
-                userMessage.toLowerCase().includes('headache') ||
-                userMessage.toLowerCase().includes('symptom') ||
-                userMessage.toLowerCase().includes('doctor') ||
-                userMessage.toLowerCase().includes('hospital') ||
-                userMessage.toLowerCase().includes('ألم') ||
-                userMessage.toLowerCase().includes('حمى') ||
-                userMessage.toLowerCase().includes('صداع') ||
-                userMessage.toLowerCase().includes('طبيب') ||
-                userMessage.toLowerCase().includes('مستشفى');
-            return hasMedicalKeywords;
+            const lowerMessage = userMessage.toLowerCase();
+            return lowerMessage.includes('pain') || lowerMessage.includes('fever') ||
+                lowerMessage.includes('headache') || lowerMessage.includes('symptom') ||
+                lowerMessage.includes('ألم') || lowerMessage.includes('حمى') ||
+                lowerMessage.includes('صداع') || lowerMessage.includes('طبيب');
         }
     };
 
-    return {
-        validateMedicalQuestion,
-        isValidationLoading: validateMedicalQuestionMutation.isPending
-    };
+    return { validateMedicalQuestion, isValidationLoading: validateMedicalQuestionMutation.isPending };
 };
 
 export default useApiMedicalValidation;

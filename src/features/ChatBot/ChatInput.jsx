@@ -23,7 +23,7 @@ const ChatInput = ({ inputText, setInputText, isEnglish, autoResizeTextarea,
       <div className="flex items-end gap-2">
         <TextAreaWithVoice inputText={inputText} setInputText={setInputText} placeholder={placeholder} autoResizeTextarea={autoResizeTextarea} handleKeyDown={handleKeyDown} setIsVoiceModalOpen={setIsVoiceModalOpen} textareaRef={textareaRef} disabled={sessionLimitReached} />
 
-        <SendButton onClick={handleSendMessage} disabled={isDisabled} isPending={sendMessageMutation.isPending} />
+        <SendButton onClick={handleSendMessage} disabled={isDisabled} isPending={sendMessageMutation.isPending} sessionLimitReached={sessionLimitReached} isEnglish={isEnglish} />
       </div>
     </div>
   );
@@ -40,7 +40,7 @@ const SessionLimitWarning = ({ isEnglish }) => (
 const TextAreaWithVoice = ({ inputText, setInputText, placeholder, autoResizeTextarea,
   handleKeyDown, setIsVoiceModalOpen, textareaRef, disabled }) => (
   <div className="flex-1 relative">
-    <textarea ref={textareaRef} placeholder={placeholder} rows={1} className="w-full text-sm border border-gray-300 dark:bg-gray-700 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" value={inputText} onChange={(e) => setInputText(e.target.value)} onInput={() => autoResizeTextarea(textareaRef)} onKeyDown={handleKeyDown} disabled={disabled} />
+    <textarea ref={textareaRef} placeholder={placeholder} rows={1} className="w-full text-sm border border-gray-300 dark:bg-gray-700 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed" value={inputText} onChange={(e) => setInputText(e.target.value)} onInput={() => autoResizeTextarea(textareaRef)} onKeyDown={handleKeyDown} disabled={disabled} />
     <VoiceInputButton onClick={() => setIsVoiceModalOpen(true)} disabled={disabled} />
   </div>
 );
@@ -51,10 +51,19 @@ const VoiceInputButton = ({ onClick, disabled }) => (
   </button>
 );
 
-const SendButton = ({ onClick, disabled }) => (
-  <button onClick={onClick} disabled={disabled} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition">
-    <FaPaperPlane className="h-4 w-4" />
-  </button>
-);
+const SendButton = ({ onClick, disabled, isPending }) => {
+
+  return (
+    <button onClick={onClick} disabled={disabled} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition flex items-center justify-center min-w-[60px]">
+      {isPending ? (
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+      ) : (
+        <>
+          <FaPaperPlane className="h-4 w-4" />
+        </>
+      )}
+    </button>
+  );
+};
 
 export default ChatInput;

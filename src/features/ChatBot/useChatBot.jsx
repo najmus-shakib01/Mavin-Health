@@ -48,7 +48,7 @@ export const useChatBot = () => {
 
   const hasRequiredInfo = useCallback(() =>
     userInfo.age && userInfo.gender && userInfo.duration
-    , [userInfo]);
+  , [userInfo]);
 
   const getMissingInfo = useCallback(() => {
     const missing = [];
@@ -101,10 +101,12 @@ export const useChatBot = () => {
       : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION.`;
   };
 
-
   const sendMessageMutation = useMutation({
     mutationFn: async (inputText) => {
-      if (sessionLimitReached) throw new Error("Session limit reached");
+      console.log('Session limit reached:', sessionLimitReached);
+      if (sessionLimitReached) {
+        throw new Error("SESSION_LIMIT_REACHED");
+      }
 
       const isMedical = await validateMedicalQuestion(inputText);
       if (!isMedical) throw new Error("NON_MEDICAL_QUESTION");
@@ -128,11 +130,22 @@ export const useChatBot = () => {
       incrementMessageCount();
       streamHandler.processStream(data);
     },
-    onError: (error) => handleSendMessageError(error, isEnglish, setMessages),
+    onError: (error) => handleSendMessageError(error, isEnglish, setMessages, sessionLimitReached),
   });
 
   const handleSendMessage = useCallback(async () => {
-    if (!inputText.trim() || sessionLimitReached) return;
+    console.log('Handle send message called, sessionLimitReached:', sessionLimitReached);
+    
+    if (sessionLimitReached) {
+      const limitMessage = isEnglish 
+        ? "You've reached the chat limit for this session. Please start a new one to continue."
+        : "لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة.";
+      
+      setMessages(prev => [...prev, createBotMessage(limitMessage)]);
+      return;
+    }
+
+    if (!inputText.trim()) return;
 
     const languageVerification = verifyLanguage(inputText, isEnglish, isArabic);
     if (!languageVerification.valid) {
@@ -148,11 +161,20 @@ export const useChatBot = () => {
     }
 
     await processUserMessage(inputText, setMessages, sendMessageMutation, setInputText);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputText, isEnglish, isArabic, sendMessageMutation, sessionLimitReached]);
 
   const handleSendMessageError = (error, isEnglish, setMessages) => {
-    if (error.message === "NON_MEDICAL_QUESTION") {
+    console.log('Error in send message:', error.message);
+    
+    if (error.message === "SESSION_LIMIT_REACHED") {
+      const limitMessage = isEnglish 
+        ? "You've reached the chat limit for this session. Please start a new one to continue."
+        : "لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة.";
+      
+      setMessages(prev => [...prev, createBotMessage(limitMessage)]);
+    }
+    else if (error.message === "NON_MEDICAL_QUESTION") {
       const message = isEnglish
         ? "Sorry, I don't answer non-medical questions. You can only share medical-related questions with me."
         : "عذرًا، لا أجيب على التكاليف غير الطبية. يمكنك فقط مشاركة التكاليف الطبية معي.";
@@ -203,11 +225,26 @@ export const useChatBot = () => {
     setInputText("");
   };
 
-  const createUserMessage = (text) => ({ id: Date.now(), text, sender: "user", timestamp: new Date().toLocaleTimeString(), });
+  const createUserMessage = (text) => ({ 
+    id: Date.now(), 
+    text, 
+    sender: "user", 
+    timestamp: new Date().toLocaleTimeString(), 
+  });
 
-  const createBotMessage = (text, isStreaming = false) => ({ id: Date.now() + 1, text, sender: "bot", isStreaming, timestamp: new Date().toLocaleTimeString(), });
+  const createBotMessage = (text, isStreaming = false) => ({ 
+    id: Date.now() + 1, 
+    text, 
+    sender: "bot", 
+    isStreaming, 
+    timestamp: new Date().toLocaleTimeString(), 
+  });
 
-  const startNewConversation = useCallback(() => { setMessages([]); setInputText(""); resetSession(); }, [resetSession]);
+  const startNewConversation = useCallback(() => { 
+    setMessages([]); 
+    setInputText(""); 
+    resetSession(); 
+  }, [resetSession]);
 
   const handleVoiceTextConverted = useCallback((text) => {
     setInputText(prevInput => prevInput + (prevInput ? " " + text : text));

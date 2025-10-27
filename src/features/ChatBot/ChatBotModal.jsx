@@ -110,7 +110,7 @@ const Disclaimer = ({ isEnglish }) => (
 
 const SessionLimitAlert = ({ isEnglish }) => (
     <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-        <p className="text-yellow-700 text-sm">
+        <p className="text-yellow-700 text-sm font-medium">
             {isEnglish ? `You've reached the chat limit for this session. Please start a new one to continue.` : `لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة.`}
         </p>
     </div>

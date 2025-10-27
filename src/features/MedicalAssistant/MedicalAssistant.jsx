@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { SessionProvider } from "../../contexts/SessionContext";
 import PageTitle from "../../utils/PageTitle";
-import useMedicalAssistant from '../useMedicalAssistant/useMedicalAssistant';
+import { useMedicalAssistant } from '../useMedicalAssistant/useMedicalAssistant';
 import AssistantTab from "./AssistantTab";
 import Header from "./Header";
 
@@ -13,16 +13,28 @@ const MedicalAssistant = () => (
 
 const MedicalAssistantContent = () => {
   const {
-    userInput, setUserInput, response, responseDivRef, isProcessing,
-    handleSendMessage, handleKeyDown, autoResizeTextarea,
-    startNewConversation, userInfo
+    messages,
+    inputText,
+    setInputText,
+    isProcessing,
+    handleSendMessage,
+    handleKeyDown,
+    autoResizeTextarea,
+    startNewConversation,
+    userInfo,
+    sessionLimitReached
   } = useMedicalAssistant();
 
   const textareaRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     if (textareaRef.current) autoResizeTextarea(textareaRef);
-  }, [userInput, autoResizeTextarea]);
+  }, [inputText, autoResizeTextarea]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   return (
     <div className="min-h-screen flex items-center justify-center py-8 px-4 dark:bg-gray-900">
@@ -31,7 +43,7 @@ const MedicalAssistantContent = () => {
         <div className="bg-white shadow-2xl rounded-2xl overflow-hidden dark:bg-gray-900">
           <Header />
           <div className="p-6 dark:bg-gray-800">
-            <AssistantTab userInput={userInput} setUserInput={setUserInput} response={response} responseDivRef={responseDivRef} isProcessing={isProcessing} handleSendMessage={handleSendMessage} handleKeyDown={handleKeyDown} textareaRef={textareaRef} autoResizeTextarea={autoResizeTextarea} startNewConversation={startNewConversation} userInfo={userInfo} />
+            <AssistantTab messages={messages} inputText={inputText} setInputText={setInputText} isProcessing={isProcessing} handleSendMessage={handleSendMessage} handleKeyDown={handleKeyDown} textareaRef={textareaRef} autoResizeTextarea={autoResizeTextarea} startNewConversation={startNewConversation} userInfo={userInfo} sessionLimitReached={sessionLimitReached} messagesEndRef={messagesEndRef} />
           </div>
         </div>
       </div>

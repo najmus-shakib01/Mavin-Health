@@ -1,37 +1,32 @@
-import { useCallback, useRef, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
+import { apiKey, baseUrl } from "../../constants/env.constants";
 import { cornerCases } from "../../constants/env.cornercase";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useSession } from "../../contexts/SessionContext";
-import useApiCommunication from "./useApiCommunication";
-import useApiMedicalValidation from "./useApiMedicalValidation";
-import useEmergencyDetection from "./useEmergencyDetection";
+import { detectEmergency, isMedicalQuestion, verifyLanguage } from "../ChatBot/MessageUtils";
+import { useStreamHandler } from "../ChatBot/useStreamHandler";
 
-const useMedicalAssistant = () => {
-  const [userInput, setUserInput] = useState("");
-  const [response, setResponse] = useState("");
+export const useMedicalAssistant = () => {
+  const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [lastRequestTime, setLastRequestTime] = useState(0);
-  const responseDivRef = useRef(null);
+  const [showEmergencyAlert, setShowEmergencyAlert] = useState(false);
+
   const { isEnglish, isArabic } = useLanguage();
-
   const { sessionLimitReached, incrementMessageCount, resetSession, userInfo, updateUserInfo } = useSession();
-  const { detectEmergency } = useEmergencyDetection();
-  const { validateMedicalQuestion } = useApiMedicalValidation();
-  const { sendMessageMutation } = useApiCommunication(setResponse, responseDivRef);
 
-  const autoResizeTextarea = useCallback((textareaRef) => {
-    textareaRef?.current && (textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`);
-  }, []);
+  const streamHandler = useStreamHandler(setMessages, isArabic);
 
   const extractUserInfoFromMessage = useCallback((message) => {
     const ageMatch = message.match(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/i);
-    const genderMatch = message.match(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة)/i);
+    const genderMatch = message.match(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة|boy|girl)/i);
     const durationMatch = message.match(/(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/i);
 
     return {
-      age: ageMatch?.[1] || '',
-      gender: genderMatch?.[1]?.toLowerCase() || '',
-      duration: durationMatch?.[0] || '',
+      age: ageMatch ? ageMatch[1] : '',
+      gender: genderMatch ? genderMatch[1].toLowerCase() : '',
+      duration: durationMatch ? durationMatch[0] : '',
       symptoms: extractSymptoms(message)
     };
   }, []);
@@ -40,7 +35,7 @@ const useMedicalAssistant = () => {
     if (message.length > 10) {
       return message
         .replace(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/gi, '')
-        .replace(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة)/gi, '')
+        .replace(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة|boy|girl)/gi, '')
         .replace(/(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/gi, '')
         .replace(/\s+/g, ' ')
         .trim();
@@ -49,14 +44,14 @@ const useMedicalAssistant = () => {
   };
 
   const hasRequiredInfo = useCallback(() =>
-    userInfo?.age && userInfo?.gender && userInfo?.duration
+    userInfo.age && userInfo.gender && userInfo.duration
     , [userInfo]);
 
   const getMissingInfo = useCallback(() => {
     const missing = [];
-    if (!userInfo?.age) missing.push(isEnglish ? 'age' : 'العمر');
-    if (!userInfo?.gender) missing.push(isEnglish ? 'gender' : 'الجنس');
-    if (!userInfo?.duration) missing.push(isEnglish ? 'how long you\'ve been having this problem' : 'المدة التي تعاني منها من هذه المشكلة');
+    if (!userInfo.age) missing.push(isEnglish ? 'age' : 'العمر');
+    if (!userInfo.gender) missing.push(isEnglish ? 'gender' : 'الجنس');
+    if (!userInfo.duration) missing.push(isEnglish ? 'how long you\'ve been having this problem' : 'المدة التي تعاني منها من هذه المشكلة');
     return missing;
   }, [userInfo, isEnglish]);
 
@@ -64,16 +59,21 @@ const useMedicalAssistant = () => {
     const extractedInfo = extractUserInfoFromMessage(userMessage);
     const hasNewInfo = extractedInfo.age || extractedInfo.gender || extractedInfo.duration || extractedInfo.symptoms;
 
-    if (hasNewInfo) updateUserInfo(extractedInfo);
+    if (hasNewInfo) {
+      updateUserInfo(extractedInfo);
+    }
 
     const currentHasRequiredInfo = hasRequiredInfo();
     const missingInfo = getMissingInfo();
 
-    if (!currentHasRequiredInfo) return generateMissingInfoPrompt(missingInfo, isEnglish);
+    if (!currentHasRequiredInfo) {
+      return generateMissingInfoPrompt(missingInfo, isEnglish);
+    }
+
     if (currentHasRequiredInfo && (!extractedInfo.symptoms || extractedInfo.symptoms.length < 10)) {
       return isEnglish
-        ? "The user has provided age, gender, and duration. Now ask them to share their symptoms in detail."
-        : "قدم المستخدم العمر والجنس والمدة. الآن اطلب منهم مشاركة أعراضهم بالتفصيل.";
+        ? "The user has provided age, gender, and duration. Now ask them to share their symptoms in detail. Respond with: 'Thank you brother, now please share your symptoms in detail.'"
+        : "قدم المستخدم العمر والجنس والمدة. الآن اطلب منهم مشاركة أعراضهم بالتفصيل. رد بـ: 'شكراً لك أخي، الآن يرجى مشاركة أعراضك بالتفصيل.'";
     }
 
     return generateMedicalPrompt(userInfo, isEnglish);
@@ -98,69 +98,160 @@ const useMedicalAssistant = () => {
       : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION.`;
   };
 
-  const verifyLanguage = useCallback((text) => {
-    if (!text) return { valid: false, message: isEnglish ? "<span style='color:red'>Please enter a question.</span>" : "<span style='color:red'>يرجى إدخال سؤال.</span>" };
+  const sendMessageMutation = useMutation({
+    mutationFn: async (inputText) => {
+      if (sessionLimitReached) {
+        throw new Error("SESSION_LIMIT_REACHED");
+      }
+      
+      if (!isMedicalQuestion(inputText)) {
+        throw new Error("NON_MEDICAL_QUESTION");
+      }
 
-    const hasEnglish = /[a-zA-Z]/.test(text);
-    const hasArabic = /[\u0600-\u06FF]/.test(text);
+      const systemPrompt = generateSystemPrompt(inputText);
+      const response = await fetch(`${baseUrl}/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "mistralai/mistral-small-24b-instruct-2501:free",
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: inputText }],
+          temperature: 0, stream: true,
+        }),
+      });
 
-    if (isEnglish && hasArabic) return { valid: false, message: "<span style='color:red'>Please ask in English.</span>" };
-    if (isArabic && hasEnglish) return { valid: false, message: "<span style='color:red'>يرجى السؤال بالعربية.</span>" };
-    if (!hasEnglish && !hasArabic) return { valid: false, message: isEnglish ? "<span style='color:red'>I only accept questions in English or Arabic.</span>" : "<span style='color:red'>أقبل الأسئلة بالإنجليزية أو العربية فقط.</span>" };
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-    return { valid: true };
-  }, [isEnglish, isArabic]);
+      return { stream: response.body, language: isArabic ? 'arabic' : 'english' };
+    },
+    onSuccess: (data) => {
+      incrementMessageCount();
+      streamHandler.processStream(data);
+    },
+    onError: (error) => handleSendMessageError(error, isEnglish, setMessages, sessionLimitReached),
+  });
 
   const handleSendMessage = useCallback(async () => {
-    const now = Date.now();
-    if (now - lastRequestTime < 2000) {
-      setResponse(isEnglish ? "<span style='color:orange'>⏳ Please wait a moment...</span>" : "<span style='color:orange'>⏳ يرجى الانتظار لحظة...</span>");
+    if (sessionLimitReached) {
+      const limitMessage = isEnglish
+        ? "You've reached the chat limit for this session. Please start a new one to continue."
+        : "لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة.";
+
+      setMessages(prev => [...prev, createBotMessage(limitMessage)]);
       return;
     }
 
-    if (!userInput?.trim() || isProcessing || sessionLimitReached) return;
+    if (!inputText.trim() || isProcessing) return;
 
-    setIsProcessing(true);
-    setLastRequestTime(now);
-    const userMessage = userInput.trim();
-    setUserInput("");
-
-    const languageVerification = verifyLanguage(userMessage);
+    const languageVerification = verifyLanguage(inputText, isEnglish, isArabic);
     if (!languageVerification.valid) {
-      setResponse(languageVerification.message);
-      setIsProcessing(false);
+      addMessagePair(inputText, languageVerification.message, setMessages);
+      setInputText("");
       return;
     }
 
-    if (detectEmergency(userMessage)) {
-      setResponse(generateEmergencyResponse(isEnglish));
-      setIsProcessing(false);
+    if (detectEmergency(inputText)) {
+      handleEmergencySituation(inputText, isEnglish, setMessages, setShowEmergencyAlert);
+      setInputText("");
       return;
     }
 
-    try {
-      const isMedical = await validateMedicalQuestion(userMessage);
-      if (!isMedical) {
-        setResponse(isEnglish ? "Sorry, I don't answer non-medical questions. You can only share medical-related questions with me." : "عذرًا، لا أجيب على التكاليف غير الطبية. يمكنك فقط مشاركة التكاليف الطبية معي.");
+    await processUserMessage(inputText, setMessages, sendMessageMutation, setInputText, setIsProcessing);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputText, isEnglish, isArabic, sendMessageMutation, sessionLimitReached, isProcessing]);
+
+  const handleSendMessageError = (error, isEnglish, setMessages) => {
+    if (error.message === "SESSION_LIMIT_REACHED") {
+      const limitMessage = isEnglish
+        ? "You've reached the chat limit for this session. Please start a new one to continue."
+        : "لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة.";
+
+      setMessages(prev => [...prev, createBotMessage(limitMessage)]);
+    }
+    else if (error.message === "NON_MEDICAL_QUESTION") {
+      const message = isEnglish
+        ? "Sorry, I don't answer non-medical questions. You can only share medical-related questions with me."
+        : "عذرًا، لا أجيب على التكاليف غير الطبية. يمكنك فقط مشاركة التكاليف الطبية معي.";
+
+      setMessages(prev => [...prev, createBotMessage(message)]);
+    } else {
+      const errorMessage = isArabic
+        ? `<span style="color:red">خطأ : ${error.message}</span>`
+        : `<span style="color:red">Error : ${error.message}</span>`;
+
+      setMessages(prev => [...prev, createBotMessage(errorMessage)]);
+    }
+  };
+
+  const addMessagePair = (userText, botText, setMessages) => {
+    const newMessages = [
+      createUserMessage(userText),
+      createBotMessage(botText)
+    ];
+    setMessages(prev => [...prev, ...newMessages]);
+  };
+
+  const handleEmergencySituation = (inputText, isEnglish, setMessages, setShowEmergencyAlert) => {
+    const emergencyResponse = isEnglish
+      ? `<span style="color:red; font-weight:bold;">⚠️ EMERGENCY ALERT! You may be experiencing a serious medical condition. ➡️ Please go to the nearest hospital immediately or call emergency services. 📞 Call your local emergency number. 🏥 Use Google Maps to search for "nearest hospital" if needed.</span>`
+      : `<span style="color:red; font-weight:bold;">⚠️ تنبيه طوارئ! قد تكون تعاني من حالة طبية خطيرة. ➡️ يرجى التوجه إلى أقرب مستشفى فورًا أو الاتصال بخدمات الطوارئ. 📞 اتصل برقم الطوارئ المحلي. 🏥 استخدم خرائط Google للبحث عن "أقرب مستشفى" إذا لزم الأمر.</span>`;
+
+    addMessagePair(inputText, emergencyResponse, setMessages);
+    setShowEmergencyAlert(true);
+    setTimeout(() => setShowEmergencyAlert(false), 10000);
+  };
+
+  const processUserMessage = async (inputText, setMessages, sendMessageMutation, setInputText, setIsProcessing) => {
+    const newUserMessage = createUserMessage(inputText);
+    setMessages(prev => [...prev, newUserMessage]);
+
+    const loadingMessage = createBotMessage(
+      isEnglish ? "🔄 Analyzing your symptoms..." : "🔄 جاري تحليل الأعراض...",
+      true
+    );
+    setMessages(prev => [...prev, loadingMessage]);
+    setIsProcessing(true);
+
+    sendMessageMutation.mutate(inputText, {
+      onSuccess: () => {
+        setMessages(prev => prev.filter(msg => msg.id !== loadingMessage.id));
         setIsProcessing(false);
-        return;
+      },
+      onError: () => {
+        setMessages(prev => prev.filter(msg => msg.id !== loadingMessage.id));
+        setIsProcessing(false);
       }
-    } catch (error) {
-      console.error("Medical validation error:", error);
-    }
+    });
 
-    try {
-      setResponse(isEnglish ? "🔄 Processing your request..." : "🔄 جاري معالجة طلبك...");
-      incrementMessageCount();
+    setInputText("");
+  };
 
-      const systemPrompt = generateSystemPrompt(userMessage);
-      await sendMessageMutation.mutateAsync({ userMessage, systemPrompt });
-    } catch (error) {
-      setResponse(generateErrorMessage(error, isEnglish));
-    } finally {
-      setIsProcessing(false);
+  const createUserMessage = (text) => ({
+    id: Date.now(),
+    text,
+    sender: "user",
+    timestamp: new Date().toLocaleTimeString(),
+  });
+
+  const createBotMessage = (text, isStreaming = false) => ({
+    id: Date.now() + 1,
+    text,
+    sender: "bot",
+    isStreaming,
+    timestamp: new Date().toLocaleTimeString(),
+  });
+
+  const startNewConversation = useCallback(() => {
+    setMessages([]);
+    setInputText("");
+    resetSession();
+  }, [resetSession]);
+
+  const autoResizeTextarea = useCallback((textareaRef) => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  }, [userInput, isProcessing, verifyLanguage, detectEmergency, sendMessageMutation, isEnglish, lastRequestTime, sessionLimitReached, incrementMessageCount, generateSystemPrompt, validateMedicalQuestion]);
+  }, []);
 
   const handleKeyDown = useCallback((event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -169,31 +260,9 @@ const useMedicalAssistant = () => {
     }
   }, [handleSendMessage]);
 
-  const startNewConversation = useCallback(() => {
-    setResponse("");
-    setUserInput("");
-    setLastRequestTime(0);
-    resetSession();
-  }, [resetSession]);
+  const closeEmergencyAlert = useCallback(() => setShowEmergencyAlert(false), []);
 
   return {
-    userInput: userInput || "", setUserInput, response: response || "", responseDivRef, isProcessing,
-    handleSendMessage, handleKeyDown, autoResizeTextarea, startNewConversation, userInfo: userInfo || {}
+    messages, inputText, setInputText, isProcessing, handleSendMessage, handleKeyDown, autoResizeTextarea, startNewConversation, userInfo, sessionLimitReached, showEmergencyAlert, closeEmergencyAlert
   };
 };
-
-const generateEmergencyResponse = (isEnglish) => isEnglish
-  ? `<span style="color:red; font-weight:bold;">⚠️ EMERGENCY ALERT! Please go to the nearest hospital immediately.</span>`
-  : `<span style="color:red; font-weight:bold;">⚠️ تنبيه طوارئ! يرجى التوجه إلى أقرب مستشفى فورًا.</span>`;
-
-const generateErrorMessage = (error, isEnglish) => {
-  if (error.message.includes('429')) return isEnglish
-    ? "<span style='color:orange'>⚠️ Too many requests. Please wait and try again.</span>"
-    : "<span style='color:orange'>⚠️ عدد الطلبات كبير. يرجى الانتظار والمحاولة مرة أخرى.</span>";
-
-  return isEnglish
-    ? `<span style="color:red">Error: ${error.message}</span>`
-    : `<span style="color:red">خطأ: ${error.message}</span>`;
-};
-
-export default useMedicalAssistant;

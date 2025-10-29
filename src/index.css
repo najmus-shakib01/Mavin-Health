@@ -3,11 +3,24 @@
 @tailwind utilities;
 
 body {
-    @apply bg-[whitesmoke] dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-200;
-    scroll-behavior: smooth;
-    cursor: context-menu;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
+  @apply bg-[whitesmoke] dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-200;
+  scroll-behavior: smooth;
+  cursor: pointer;
+}
+
+html, body {
+  overflow: hidden;
+  height: 100%;
+}
+
+@media (max-width: 768px) {
+  html, body {
+    overflow: auto;
+    height: auto;
+  }
+
+  .medical-assistant-page {
+    overflow: auto;
+    height: 100vh;
+  }
 }

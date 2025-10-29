@@ -17,14 +17,12 @@ export const SessionProvider = ({ children }) => {
 
     const incrementMessageCount = useCallback(() => {
         setMessageCount(prev => {
-            const newCount = prev + 1;
-            console.log(`Message count incremented: ${newCount}/${sessionLimit}`);
-            return newCount;
+            if (prev >= sessionLimit) return prev;
+            return prev + 1;
         });
     }, [sessionLimit]);
 
     const resetSession = useCallback(() => {
-        console.log('Session reset');
         setMessageCount(0);
         setUserInfo({ age: '', gender: '', duration: '', symptoms: '' });
     }, []);
@@ -34,7 +32,8 @@ export const SessionProvider = ({ children }) => {
     }, []);
 
     const hasRequiredInfo = useCallback(() =>
-        userInfo.age && userInfo.gender && userInfo.duration, [userInfo]);
+        userInfo.age && userInfo.gender && userInfo.duration
+        , [userInfo]);
 
     const value = {
         messageCount, sessionLimit, sessionLimitReached: messageCount >= sessionLimit, incrementMessageCount, resetSession, userInfo, updateUserInfo, hasRequiredInfo

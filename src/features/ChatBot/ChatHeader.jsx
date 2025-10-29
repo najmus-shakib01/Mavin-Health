@@ -1,40 +1,28 @@
 /* eslint-disable react/prop-types */
 import { FaCompress, FaExpand, FaRobot, FaTimes } from "react-icons/fa";
-import { useSession } from "../../contexts/SessionContext";
 
 const ChatHeader = ({
   isEnglish, language, changeLanguage, isFullscreen, toggleFullscreen,
-  onClose, startNewConversation, messageCount }) => {
+  onClose, startNewConversation, messageCount }) => (
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
+    <HeaderInfo messageCount={messageCount} isEnglish={isEnglish} />
+    <HeaderActions messageCount={messageCount} isEnglish={isEnglish} language={language} changeLanguage={changeLanguage} isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} startNewConversation={startNewConversation} onClose={onClose} />
+  </div>
+);
 
-  const { sessionLimit } = useSession();
-
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
-      <HeaderInfo messageCount={messageCount} sessionLimit={sessionLimit} isEnglish={isEnglish} />
-      <HeaderActions messageCount={messageCount} isEnglish={isEnglish} language={language} changeLanguage={changeLanguage} isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} startNewConversation={startNewConversation} onClose={onClose} />
+const HeaderInfo = ({ messageCount, isEnglish }) => (
+  <div className="flex items-center gap-2 sm:gap-3">
+    <div className="p-1.5 sm:p-2 bg-blue-100 rounded-full text-blue-600 dark:bg-blue-900 dark:text-blue-300">
+      <FaRobot className="h-4 w-4 sm:h-5 sm:w-5" />
     </div>
-  );
-};
-
-const HeaderInfo = ({ messageCount, sessionLimit, isEnglish }) => {
-  const conversationCount = Math.ceil(messageCount / 2);
-
-  return (
-    <div className="flex items-center gap-2 sm:gap-3">
-      <div className="p-1.5 sm:p-2 bg-blue-100 rounded-full text-blue-600 dark:bg-blue-900 dark:text-blue-300">
-        <FaRobot className="h-4 w-4 sm:h-5 sm:w-5" />
-      </div>
-      <div>
-        <h3 className="font-semibold text-gray-800 dark:text-white text-sm sm:text-base whitespace-nowrap">Medical Assistant</h3>
-        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-          {messageCount > 0
-            ? `${conversationCount}/${sessionLimit} ${isEnglish ? 'conversations' : 'محادثات'}`
-            : `${isEnglish ? 'AI-powered medical consultation' : 'استشارة طبية مدعومة بالذكاء الاصطناعي'}`}
-        </p>
-      </div>
+    <div>
+      <h3 className="font-semibold text-gray-800 dark:text-white text-sm sm:text-base">Medical Assistant</h3>
+      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+        {messageCount > 0 ? `${messageCount}/15 ${isEnglish ? 'messages' : 'رسائل'}` : `${isEnglish ? 'AI-powered medical consultation' : 'استشارة طبية مدعومة بالذكاء الاصطناعي'}`}
+      </p>
     </div>
-  );
-};
+  </div>
+);
 
 const HeaderActions = ({ messageCount, isEnglish, language, changeLanguage, isFullscreen, toggleFullscreen, startNewConversation, onClose }) => (
   <div className="flex items-center gap-1 sm:gap-2">

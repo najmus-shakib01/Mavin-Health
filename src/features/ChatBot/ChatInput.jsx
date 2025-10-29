@@ -4,7 +4,7 @@ import { FaMicrophone, FaPaperPlane } from "react-icons/fa";
 const ChatInput = ({ inputText, setInputText, isEnglish, autoResizeTextarea,
   handleSendMessage, setIsVoiceModalOpen, sendMessageMutation, textareaRef, sessionLimitReached }) => {
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !sessionLimitReached) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -23,7 +23,7 @@ const ChatInput = ({ inputText, setInputText, isEnglish, autoResizeTextarea,
       <div className="flex items-end gap-2">
         <TextAreaWithVoice inputText={inputText} setInputText={setInputText} placeholder={placeholder} autoResizeTextarea={autoResizeTextarea} handleKeyDown={handleKeyDown} setIsVoiceModalOpen={setIsVoiceModalOpen} textareaRef={textareaRef} disabled={sessionLimitReached} />
 
-        <SendButton onClick={handleSendMessage} disabled={isDisabled} isPending={sendMessageMutation.isPending} sessionLimitReached={sessionLimitReached} isEnglish={isEnglish} />
+        <SendButton onClick={handleSendMessage} disabled={isDisabled} isPending={sendMessageMutation.isPending} sessionLimitReached={sessionLimitReached} />
       </div>
     </div>
   );
@@ -51,19 +51,17 @@ const VoiceInputButton = ({ onClick, disabled }) => (
   </button>
 );
 
-const SendButton = ({ onClick, disabled, isPending }) => {
-
-  return (
-    <button onClick={onClick} disabled={disabled} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition flex items-center justify-center min-w-[60px]">
-      {isPending ? (
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-      ) : (
-        <>
-          <FaPaperPlane className="h-4 w-4" />
-        </>
-      )}
-    </button>
-  );
-};
+const SendButton = ({ onClick, disabled, isPending, sessionLimitReached }) => (
+  <button onClick={onClick} disabled={disabled} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+  >
+    {isPending ? (
+      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+    ) : sessionLimitReached ? (
+      <span className="text-xs">🚫</span>
+    ) : (
+      <FaPaperPlane className="h-4 w-4" />
+    )}
+  </button>
+);
 
 export default ChatInput;

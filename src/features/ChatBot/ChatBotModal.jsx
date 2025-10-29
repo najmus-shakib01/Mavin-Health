@@ -17,7 +17,7 @@ const ChatBotModal = ({ isOpen, onClose }) => (
 const ChatBotModalContent = ({ isOpen, onClose }) => {
     const { messages, inputText, setInputText, isVoiceModalOpen, setIsVoiceModalOpen, isFullscreen, showEmergencyAlert, closeEmergencyAlert, language, changeLanguage, isEnglish, handleSendMessage, handleVoiceTextConverted, autoResizeTextarea, toggleFullscreen, sendMessageMutation, startNewConversation } = useChatBot(onClose);
 
-    const { sessionLimitReached, userInfo, updateUserInfo } = useSession();
+    const { sessionLimitReached, userInfo, updateUserInfo, messageCount } = useSession();
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
 
@@ -33,7 +33,7 @@ const ChatBotModalContent = ({ isOpen, onClose }) => {
 
             <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-end justify-end z-50 p-4 ${isFullscreen ? 'items-center justify-center' : ''}`}>
                 <div className={`bg-white dark:bg-gray-800 rounded-xl w-full flex flex-col shadow-xl transition-all duration-300 ${isFullscreen ? 'max-w-4xl h-[90vh]' : 'max-w-md h-[70vh]'}`}>
-                    <ChatHeader isEnglish={isEnglish} language={language} changeLanguage={changeLanguage} isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} onClose={onClose} startNewConversation={startNewConversation} messageCount={messages.length} userInfo={userInfo} updateUserInfo={updateUserInfo} sessionLimitReached={sessionLimitReached} />
+                    <ChatHeader isEnglish={isEnglish} language={language} changeLanguage={changeLanguage} isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} onClose={onClose} startNewConversation={startNewConversation} messageCount={messageCount} userInfo={userInfo} updateUserInfo={updateUserInfo} sessionLimitReached={sessionLimitReached} />
 
                     <MessageList messages={messages} isEnglish={isEnglish} userInfo={userInfo} sessionLimitReached={sessionLimitReached} sendMessageMutation={sendMessageMutation} />
 
@@ -111,7 +111,7 @@ const Disclaimer = ({ isEnglish }) => (
 const SessionLimitAlert = ({ isEnglish }) => (
     <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
         <p className="text-yellow-700 text-sm font-medium">
-            {isEnglish ? `You've reached the chat limit for this session. Please start a new one to continue.` : `لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة.`}
+            {isEnglish ? `🚫 You've reached the chat limit for this session. Please start a new one to continue.` : `🚫 لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة.`}
         </p>
     </div>
 );

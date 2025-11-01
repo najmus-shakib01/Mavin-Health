@@ -14,6 +14,7 @@ export const useChatBot = () => {
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEmergencyAlert, setShowEmergencyAlert] = useState(false);
+  const [conversationStage, setConversationStage] = useState(1);
 
   const { isEnglish, changeLanguage, language, isArabic } = useLanguage();
   const { sessionLimitReached, incrementMessageCount, resetSession, userInfo, updateUserInfo } = useSession();
@@ -23,7 +24,7 @@ export const useChatBot = () => {
 
   const extractUserInfoFromMessage = useCallback((message) => {
     const ageMatch = message.match(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/i);
-    const genderMatch = message.match(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة|boy|girl)/i);
+    const genderMatch = message.match(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة)/i);
     const durationMatch = message.match(/(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/i);
 
     return {
@@ -38,25 +39,13 @@ export const useChatBot = () => {
     if (message.length > 10) {
       return message
         .replace(/(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/gi, '')
-        .replace(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة|boy|girl)/gi, '')
+        .replace(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة)/gi, '')
         .replace(/(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/gi, '')
         .replace(/\s+/g, ' ')
         .trim();
     }
     return '';
   };
-
-  const hasRequiredInfo = useCallback(() =>
-    userInfo.age && userInfo.gender && userInfo.duration
-    , [userInfo]);
-
-  const getMissingInfo = useCallback(() => {
-    const missing = [];
-    if (!userInfo.age) missing.push(isEnglish ? 'age' : 'العمر');
-    if (!userInfo.gender) missing.push(isEnglish ? 'gender' : 'الجنس');
-    if (!userInfo.duration) missing.push(isEnglish ? 'how long you\'ve been having this problem' : 'المدة التي تعاني منها من هذه المشكلة');
-    return missing;
-  }, [userInfo, isEnglish]);
 
   const generateSystemPrompt = useCallback((userMessage) => {
     const extractedInfo = extractUserInfoFromMessage(userMessage);
@@ -66,42 +55,28 @@ export const useChatBot = () => {
       updateUserInfo(extractedInfo);
     }
 
-    const currentHasRequiredInfo = hasRequiredInfo();
-    const missingInfo = getMissingInfo();
-
-    if (!currentHasRequiredInfo) {
-      return generateMissingInfoPrompt(missingInfo, isEnglish);
-    }
-
-    if (currentHasRequiredInfo && (!extractedInfo.symptoms || extractedInfo.symptoms.length < 10)) {
+    if (conversationStage === 1) {
       return isEnglish
-        ? "The user has provided age, gender, and duration. Now ask them to share their symptoms in detail. Respond with: 'Thank you brother, now please share your symptoms in detail.'"
-        : "قدم المستخدم العمر والجنس والمدة. الآن اطلب منهم مشاركة أعراضهم بالتفصيل. رد بـ: 'شكراً لك أخي، الآن يرجى مشاركة أعراضك بالتفصيل.'";
+        ? "The user has shared their initial symptoms. Ask for their age, gender, and problem duration. Respond with: 'Thank you for sharing your symptoms with me. <br><hr><br> To get proper treatment, please provide your **Age**, **Gender**, and **Problem Duration**.'"
+        : "المستخدم شارك أعراضه الأولية. اطلب منه العمر والجنس ومدة المشكلة. رد بـ: 'شكراً لمشاركة أعراضك معي. <br><hr><br> للحصول على العلاج المناسب، يرجى تقديم **العمر**، **الجنس**، و**مدة المشكلة**.'";
+    } else if (conversationStage === 2) {
+      return isEnglish
+        ? "The user has provided their basic information. Now ask for detailed symptoms with examples. Respond with: 'Thank you for providing the necessary information. <br><hr><br> Now please share your **symptoms in detail**. For example — if you're talking about fever, you can write: \"I've had a fever for 3 days, initially had a sore throat, now I have body aches. I took paracetamol but it didn't help much.\"'"
+        : "المستخدم قدم معلوماته الأساسية. الآن اطلب منه أعراضه التفصيلية مع أمثلة. رد بـ: 'شكراً لتقديم المعلومات الضرورية. <br><hr><br> الآن يرجى مشاركة **أعراضك بالتفصيل**. على سبيل المثال — إذا كنت تتحدث عن الحمى، يمكنك كتابة: \"لدي حمى منذ 3 أيام، في البداية كان لدي التهاب في الحلق، الآن لدي آلام في الجسم. تناولت باراسيتامول لكنه لم يساعد كثيراً.\"'";
+    } else if (conversationStage === 3) {
+      return generateMedicalPrompt(userInfo, isEnglish);
     }
 
     return generateMedicalPrompt(userInfo, isEnglish);
-  }, [userInfo, isEnglish, hasRequiredInfo, getMissingInfo, extractUserInfoFromMessage, updateUserInfo]);
+  }, [userInfo, isEnglish, extractUserInfoFromMessage, updateUserInfo, conversationStage]);
 
-  const generateMissingInfoPrompt = (missingInfo, isEnglish) => {
-    if (missingInfo.length === 3) {
-      return isEnglish
-        ? "Ask for age, gender, and duration before providing medical advice."
-        : "اطلب العمر والجنس والمدة قبل تقديم النصيحة الطبية.";
-    }
-    const missingText = missingInfo.join(isEnglish ? ' and ' : ' و ');
-    return isEnglish
-      ? `Ask specifically for: ${missingText}`
-      : `اطلب بشكل محدد: ${missingText}`;
-  };
 
   const generateMedicalPrompt = (userInfo, isEnglish) => {
     const context = `Age: ${userInfo?.age || 'not provided'}, Gender: ${userInfo?.gender || 'not provided'}, Duration: ${userInfo?.duration || 'not provided'}, Symptoms: ${userInfo?.symptoms || 'not provided'}`;
     return isEnglish
-      ? `${cornerCases}\n\nPatient Context: ${context}. Respond in English with SPECIALIST_RECOMMENDATION.`
-      : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION.`;
+      ? `${cornerCases}\n\nPatient Context: ${context}. Respond in English with SPECIALIST_RECOMMENDATION. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". These buttons should be displayed after the sources section.`
+      : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر.`;
   };
-
-
   const sendMessageMutation = useMutation({
     mutationFn: async (inputText) => {
       if (sessionLimitReached) {
@@ -128,31 +103,14 @@ export const useChatBot = () => {
     },
     onSuccess: (data) => {
       streamHandler.processStream(data);
+      if (conversationStage === 1) {
+        setConversationStage(2);
+      } else if (conversationStage === 2) {
+        setConversationStage(3);
+      }
     },
     onError: (error) => handleSendMessageError(error, isEnglish, setMessages),
   });
-
-  const handleSendMessage = useCallback(async () => {
-    if (!inputText.trim() || sessionLimitReached) {
-      return;
-    }
-
-    const languageVerification = verifyLanguage(inputText, isEnglish, isArabic);
-    if (!languageVerification.valid) {
-      addMessagePair(inputText, languageVerification.message, setMessages);
-      setInputText("");
-      return;
-    }
-
-    if (detectEmergency(inputText)) {
-      handleEmergencySituation(inputText, isEnglish, setMessages, setShowEmergencyAlert);
-      setInputText("");
-      return;
-    }
-
-    await processUserMessage(inputText, setMessages, sendMessageMutation, setInputText);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputText, isEnglish, isArabic, sendMessageMutation, sessionLimitReached]);
 
   const handleSendMessageError = (error, isEnglish, setMessages) => {
     if (error.message === "NON_MEDICAL_QUESTION") {
@@ -223,14 +181,37 @@ export const useChatBot = () => {
     timestamp: new Date().toLocaleTimeString(),
   });
 
+  const handleSendMessage = useCallback(async () => {
+    if (!inputText.trim() || sessionLimitReached) {
+      return;
+    }
+
+    const languageVerification = verifyLanguage(inputText, isEnglish, isArabic);
+    if (!languageVerification.valid) {
+      addMessagePair(inputText, languageVerification.message, setMessages);
+      setInputText("");
+      return;
+    }
+
+    if (detectEmergency(inputText)) {
+      handleEmergencySituation(inputText, isEnglish, setMessages, setShowEmergencyAlert);
+      setInputText("");
+      return;
+    }
+
+    await processUserMessage(inputText, setMessages, sendMessageMutation, setInputText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputText, isEnglish, isArabic, sendMessageMutation, sessionLimitReached, conversationStage]);
+
   const startNewConversation = useCallback(() => {
     setMessages([]);
     setInputText("");
     resetSession();
+    setConversationStage(1);
   }, [resetSession]);
 
   const handleVoiceTextConverted = useCallback((text) => {
-    setInputText(prevInput => prevInput + (prevInput ? " " + text : text));
+    setInputText(prevInput => prevInput + (prevInput ? " " : "") + text);
     setIsVoiceModalOpen(false);
   }, []);
 

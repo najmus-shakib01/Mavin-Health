@@ -1,3 +1,4 @@
+// contexts/SessionContext.jsx
 /* eslint-disable react/prop-types */
 import { createContext, useCallback, useContext, useState } from 'react';
 

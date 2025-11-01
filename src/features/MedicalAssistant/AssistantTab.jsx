@@ -13,7 +13,7 @@ const AssistantTab = ({ messages = [], inputText = "", setInputText, isProcessin
     const { sessionLimit, sessionLimitReached } = useSession();
 
     const handleVoiceTextConverted = (text) => {
-        setInputText(prev => (prev || "") + (prev ? " " + text : text));
+        setInputText(prev => (prev || "") + (prev ? " " : "") + text);
         setIsVoiceModalOpen(false);
         setTimeout(() => textareaRef?.current?.focus(), 100);
     };

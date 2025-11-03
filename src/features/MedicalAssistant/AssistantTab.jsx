@@ -1,19 +1,20 @@
 /* eslint-disable react/prop-types */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FaAmbulance, FaLanguage, FaMicrophone, FaPaperPlane, FaStethoscope } from "react-icons/fa";
 import VoiceInputModal from "../../components/VoiceInputModal";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useSession } from "../../contexts/SessionContext";
 import MessageBubble from "../ChatBot/MessageBubble";
 
-const AssistantTab = ({ messages = [], inputText = "", setInputText, isProcessing = false, handleSendMessage, handleKeyDown, textareaRef, autoResizeTextarea, startNewConversation, userInfo = {}, messageCount = 0, messagesEndRef
-}) => {
+const AssistantTab = ({ messages = [], inputText = "", setInputText, isProcessing = false, handleSendMessage, handleKeyDown, textareaRef, autoResizeTextarea, startNewConversation, userInfo = {}, messageCount = 0, isStreaming }) => {
     const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
     const { language, isEnglish } = useLanguage();
     const { sessionLimit, sessionLimitReached } = useSession();
+    const messagesContainerRef = useRef(null);
+    const messagesEndRef = useRef(null);
 
     const handleVoiceTextConverted = (text) => {
-        setInputText(prev => (prev || "") + (prev ? " " : "") + text);
+        setInputText(prev => (prev ? prev + " " + text : text));
         setIsVoiceModalOpen(false);
         setTimeout(() => textareaRef?.current?.focus(), 100);
     };
@@ -28,7 +29,7 @@ const AssistantTab = ({ messages = [], inputText = "", setInputText, isProcessin
 
     return (
         <div className="h-full flex flex-col">
-            <ChatInterface messages={messages} isEnglish={isEnglish} messageCount={messageCount} sessionLimit={sessionLimit} sessionLimitReached={sessionLimitReached} startNewConversation={startNewConversation} userInfo={userInfo} messagesEndRef={messagesEndRef} />
+            <ChatInterface messages={messages} isEnglish={isEnglish} messageCount={messageCount} sessionLimit={sessionLimit} sessionLimitReached={sessionLimitReached} startNewConversation={startNewConversation} userInfo={userInfo} messagesEndRef={messagesEndRef} messagesContainerRef={messagesContainerRef} isStreaming={isStreaming} />
 
             <div className="mt-4 flex-shrink-0">
                 <InputSection inputText={inputText} setInputText={setInputText} isEnglish={isEnglish} language={language} isButtonDisabled={isButtonDisabled} getButtonText={getButtonText} isProcessing={isProcessing} handleSendMessage={handleSendMessage} handleKeyDown={handleKeyDown} autoResizeTextarea={autoResizeTextarea} textareaRef={textareaRef} setIsVoiceModalOpen={setIsVoiceModalOpen} sessionLimitReached={sessionLimitReached} />
@@ -39,11 +40,14 @@ const AssistantTab = ({ messages = [], inputText = "", setInputText, isProcessin
     );
 };
 
-const ChatInterface = ({ messages, isEnglish, messageCount, sessionLimit, sessionLimitReached, startNewConversation, userInfo, messagesEndRef }) => (
+const ChatInterface = ({
+    messages, isEnglish, messageCount, sessionLimit, sessionLimitReached,
+    startNewConversation, userInfo, messagesEndRef, messagesContainerRef, isStreaming
+}) => (
     <div className="border border-gray-200 dark:bg-gray-900 dark:border-gray-700 rounded-xl bg-gray-50 flex flex-col overflow-hidden h-[350px] md:h-[400px] lg:h-[400px]">
         <ChatHeader isEnglish={isEnglish} messageCount={messageCount} sessionLimit={sessionLimit} startNewConversation={startNewConversation} />
 
-        <ChatMessages messages={messages} isEnglish={isEnglish} userInfo={userInfo} sessionLimitReached={sessionLimitReached} messagesEndRef={messagesEndRef} />
+        <ChatMessages messages={messages} isEnglish={isEnglish} userInfo={userInfo} sessionLimitReached={sessionLimitReached} messagesEndRef={messagesEndRef} messagesContainerRef={messagesContainerRef} isStreaming={isStreaming} />
     </div>
 );
 
@@ -61,7 +65,9 @@ const ChatHeader = ({ isEnglish, messageCount, sessionLimit, startNewConversatio
     </div>
 );
 
-const ChatMessages = ({ messages, isEnglish, userInfo, sessionLimitReached, messagesEndRef }) => {
+const ChatMessages = ({
+    messages, isEnglish, userInfo, sessionLimitReached, messagesEndRef, messagesContainerRef, isStreaming
+}) => {
     if (messages.length === 0) {
         return (
             <div className="flex-1 overflow-hidden">
@@ -71,7 +77,7 @@ const ChatMessages = ({ messages, isEnglish, userInfo, sessionLimitReached, mess
     }
 
     return (
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto p-4 space-y-4 ${isStreaming ? '' : 'scroll-smooth'}`} style={{ overflowY: 'auto' }}>
             {messages.map((message) => (
                 <MessageBubble key={message.id} message={message} isEnglish={isEnglish} />
             ))}
@@ -82,6 +88,7 @@ const ChatMessages = ({ messages, isEnglish, userInfo, sessionLimitReached, mess
         </div>
     );
 };
+
 const EmptyState = ({ isEnglish }) => (
     <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 p-4">
         <FaStethoscope className="w-12 h-12 text-gray-300 mb-3" />
@@ -125,7 +132,10 @@ const SessionLimitAlert = ({ isEnglish }) => (
     </div>
 );
 
-const InputSection = ({ inputText, setInputText, isEnglish, language, isButtonDisabled, getButtonText, isProcessing, handleSendMessage, handleKeyDown, autoResizeTextarea, textareaRef, setIsVoiceModalOpen, sessionLimitReached
+const InputSection = ({
+    inputText, setInputText, isEnglish, language, isButtonDisabled, getButtonText,
+    isProcessing, handleSendMessage, handleKeyDown, autoResizeTextarea,
+    textareaRef, setIsVoiceModalOpen, sessionLimitReached
 }) => (
     <div className="mt-4">
         {sessionLimitReached && (
@@ -138,7 +148,7 @@ const InputSection = ({ inputText, setInputText, isEnglish, language, isButtonDi
 
         <div className="flex flex-col md:flex-row gap-2 items-stretch md:items-end">
             <div className="flex-1 relative">
-                <textarea ref={textareaRef} placeholder={sessionLimitReached ? (isEnglish ? "Session limit reached. Start a new chat to continue." : "تم الوصول إلى الحد الأقصى للجلسة. ابدأ محادثة جديدة للمتابعة.") : (isEnglish ? "Describe your health issue in detail to get a proper answer..." : "صف مشكلتك الصحية بالتفصيل للحصول على إجابة مناسبة...")} rows={1} className={`w-full text-base border border-gray-300 dark:bg-gray-800 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none leading-relaxed max-h-40 overflow-y-auto pr-12 ${isEnglish ? "text-left" : "text-right"} disabled:opacity-50 disabled:cursor-not-allowed`} dir={isEnglish ? "ltr" : "rtl"} value={inputText} onChange={(e) => setInputText(e.target.value)} onInput={() => autoResizeTextarea(textareaRef)} onKeyDown={handleKeyDown} disabled={sessionLimitReached} />
+                <textarea ref={textareaRef} placeholder={sessionLimitReached ? (isEnglish ? "Session limit reached. Start a new chat to continue." : "تم الوصول إلى الحد الأقصى للجلسة. ابدأ محادثة جديدة للمتابعة.") : (isEnglish ? "Please enter your symptoms..." : "الرجاء إدخال الأعراض الخاصة بك...")} rows={1} className={`w-full text-base border border-gray-300 dark:bg-gray-800 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none leading-relaxed max-h-40 overflow-y-auto pr-12 ${isEnglish ? "text-left" : "text-right"} disabled:opacity-50 disabled:cursor-not-allowed`} dir={isEnglish ? "ltr" : "rtl"} value={inputText} onChange={(e) => setInputText(e.target.value)} onInput={() => autoResizeTextarea(textareaRef)} onKeyDown={handleKeyDown} disabled={sessionLimitReached} />
                 <VoiceInputButton onClick={() => setIsVoiceModalOpen(true)} disabled={sessionLimitReached} />
             </div>
 
@@ -150,13 +160,13 @@ const InputSection = ({ inputText, setInputText, isEnglish, language, isButtonDi
 );
 
 const VoiceInputButton = ({ onClick, disabled }) => (
-    <button onClick={onClick} disabled={disabled} className="absolute right-3 bottom-3 p-2 bg-gray-300 rounded-full text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed" title="Voice Input">
+    <button onClick={onClick} disabled={disabled} className="absolute right-3 bottom-3 p-2 bg-gray-300 rounded-full text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed" title="Voice Input" >
         <FaMicrophone className="h-5 w-5" />
     </button>
 );
 
 const SendButton = ({ onClick, disabled, isProcessing, getButtonText, sessionLimitReached }) => (
-    <button onClick={onClick} disabled={disabled} className="w-full md:w-auto px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+    <button onClick={onClick} disabled={disabled} className="w-full md:w-auto px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2" >
         {sessionLimitReached ? (
             <span>🚫</span>
         ) : isProcessing ? (

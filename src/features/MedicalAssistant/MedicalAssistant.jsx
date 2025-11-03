@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
-import PageTitle from "../../utils/PageTitle";
 import { SessionProvider, useSession } from "../../contexts/SessionContext";
-import useMedicalAssistant from '../useMedicalAssistant/useMedicalAssistant';
+import PageTitle from "../../utils/PageTitle";
+import { useMedicalAssistant } from '../useMedicalAssistant/useMedicalAssistant';
 import AssistantTab from "./AssistantTab";
 import Header from "./Header";
 

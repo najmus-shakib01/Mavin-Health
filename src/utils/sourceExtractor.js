@@ -77,39 +77,14 @@ const createSourceObject = (name, originalUrl, response) => {
 const validateAndFixUrl = (originalUrl, sourceName, response) => {
     try {
         const urlObj = new URL(originalUrl);
-        const pathParts = urlObj.pathname.split('/').filter(part => part.length > 0);
-
-        if (pathParts.length > 4) {
-            return generateBaseDomainUrl(urlObj.hostname, response) || originalUrl;
+        const domain = trustedMedicalDomains.find(domain => urlObj.hostname.includes(domain));
+        if (domain && trustedBaseUrls[domain]) {
+            return trustedBaseUrls[domain];
         }
-
         return originalUrl;
     } catch {
         return generateSearchUrl(sourceName, response);
     }
-};
-
-const generateBaseDomainUrl = (hostname, response) => {
-    const domain = trustedMedicalDomains.find(domain => hostname.includes(domain));
-    const condition = extractMedicalCondition(response);
-
-    if (domain && trustedBaseUrls[domain] && condition) {
-        const searchTerm = conditionSearchMap[condition.toLowerCase()];
-        if (searchTerm) {
-            switch (domain) {
-                case 'who.int': return `https://www.who.int/health-topics/${searchTerm}`;
-                case 'mayoclinic.org': return `https://www.mayoclinic.org/diseases-conditions/${searchTerm}`;
-                case 'cdc.gov': return `https://www.cdc.gov/${searchTerm}`;
-                case 'webmd.com': return `https://www.webmd.com/${searchTerm}`;
-                case 'healthline.com': return `https://www.healthline.com/health/${searchTerm}`;
-                case 'nhs.uk': return `https://www.nhs.uk/conditions/${searchTerm}`;
-                default: return trustedBaseUrls[domain];
-            }
-        }
-        return trustedBaseUrls[domain];
-    }
-
-    return null;
 };
 
 const extractMedicalCondition = (response) => {
@@ -148,6 +123,7 @@ export const formatResponseWithSources = (response, isArabic = false) => {
     const sourcesSection = generateSourcesSection(sources, isArabic);
     const specialistSection = generateSpecialistSection(specialist, isArabic);
 
+    // Removed buttonsSection and its usage
     return `${cleanResponse}${specialistSection}${sourcesSection}`;
 };
 

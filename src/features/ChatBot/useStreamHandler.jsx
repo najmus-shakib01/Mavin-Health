@@ -40,6 +40,16 @@ export const useStreamHandler = (setMessages, isArabic) => {
       handleStreamError(setMessages, error, isArabic);
     } finally {
       reader.releaseLock();
+      setMessages(prev => {
+        const lastMessage = prev[prev.length - 1];
+        if (lastMessage?.sender === "bot" && lastMessage.isStreaming) {
+          return [
+            ...prev.slice(0, -1),
+            { ...lastMessage, isStreaming: false }
+          ];
+        }
+        return prev;
+      });
     }
   };
 

@@ -12,7 +12,7 @@ const ChatInput = ({ inputText, setInputText, isEnglish, autoResizeTextarea,
 
   const placeholder = sessionLimitReached
     ? (isEnglish ? "Session limit reached. Start a new chat to continue." : "تم الوصول إلى الحد الأقصى للجلسة. ابدأ محادثة جديدة للمتابعة.")
-    : (isEnglish ? "Describe your health issue in detail to get a proper answer..." : "صف مشكلتك الصحية بالتفصيل للحصول على إجابة مناسبة...");
+    : (isEnglish ? "Please enter your symptoms..." : "الرجاء إدخال الأعراض الخاصة بك...");
 
   const isDisabled = sendMessageMutation.isPending || !inputText.trim() || sessionLimitReached;
 

@@ -17,7 +17,7 @@ const useApiMedicalValidation = () => {
             },
             { role: "user", content: userMessage }
           ],
-          temperature: 0, max_tokens: 10,
+          temperature: 0, stream: true, max_tokens: 1500,
         }),
       });
 

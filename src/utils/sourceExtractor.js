@@ -123,7 +123,6 @@ export const formatResponseWithSources = (response, isArabic = false) => {
     const sourcesSection = generateSourcesSection(sources, isArabic);
     const specialistSection = generateSpecialistSection(specialist, isArabic);
 
-    // Removed buttonsSection and its usage
     return `${cleanResponse}${specialistSection}${sourcesSection}`;
 };
 

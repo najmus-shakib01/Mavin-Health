@@ -16,7 +16,7 @@ export const useChatBot = () => {
   const [showEmergencyAlert, setShowEmergencyAlert] = useState(false);
   const [conversationStage, setConversationStage] = useState(1);
   const [apiError, setApiError] = useState(null);
-  const [lastCondition, setLastCondition] = useState("");
+  const [, setLastCondition] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
 
   const { isEnglish, changeLanguage, language, isArabic } = useLanguage();
@@ -49,18 +49,6 @@ export const useChatBot = () => {
     }
     return '';
   };
-
-  const hasRequiredInfo = useCallback(() =>
-    userInfo.age && userInfo.gender && userInfo.duration
-    , [userInfo]);
-
-  const getMissingInfo = useCallback(() => {
-    const missing = [];
-    if (!userInfo.age) missing.push(isEnglish ? 'age' : 'العمر');
-    if (!userInfo.gender) missing.push(isEnglish ? 'gender' : 'الجنس');
-    if (!userInfo.duration) missing.push(isEnglish ? 'how long you\'ve been having this problem' : 'المدة التي تعاني منها من هذه المشكلة');
-    return missing;
-  }, [userInfo, isEnglish]);
 
   const isCarePlanRequest = useCallback((message) => {
     const carePlanKeywords = [
@@ -100,6 +88,16 @@ export const useChatBot = () => {
     return '';
   };
 
+  const generateMedicalPrompt = useCallback((userInfoParam, isEnglishParam, conditionParam) => {
+    const context = `Age: ${userInfoParam?.age || 'not provided'}, Gender: ${userInfoParam?.gender || 'not provided'}, Duration: ${userInfoParam?.duration || 'not provided'}, Symptoms: ${userInfoParam?.symptoms || 'not provided'}`;
+
+    if (isEnglishParam) {
+      return `${cornerCases}\n\nPatient Context: ${context}. Provide a concise medical assessment for ${conditionParam || 'the mentioned condition'}, suggest next steps, when to seek urgent care, and possible preventive measures. Include a friendly call-to-action encouraging the user to provide more details or ask follow-up questions.`;
+    }
+
+    return `${cornerCases}\n\nسياق المريض: ${context}. قدم تقييمًا طبيًا موجزًا لـ ${conditionParam || 'الحالة المذكورة'}، واقترح الخطوات التالية، ومتى يلزم طلب العناية العاجلة، والتدابير الوقائية المحتملة. قم بتضمين دعوة ودية لطلب مزيد من التفاصيل أو طرح أسئلة متابعة.`;
+  }, []);
+
   const generateSystemPrompt = useCallback((userMessage) => {
     const extractedInfo = extractUserInfoFromMessage(userMessage);
     const hasNewInfo = extractedInfo.age || extractedInfo.gender || extractedInfo.duration || extractedInfo.symptoms;
@@ -111,6 +109,8 @@ export const useChatBot = () => {
       updateUserInfo(extractedInfo);
     }
 
+    const context = `Age: ${userInfo?.age || 'not provided'}, Gender: ${userInfo?.gender || 'not provided'}, Duration: ${userInfo?.duration || 'not provided'}, Symptoms: ${userInfo?.symptoms || 'not provided'}, Condition: ${condition || 'not specified'}`;
+
     if (conversationStage === 1) {
       return isEnglish
         ? `The user has shared their initial symptoms related to ${condition || 'a medical condition'}. Ask for their age, gender, and problem duration. Create a dynamic response that acknowledges their specific condition. For example: "Thank you for sharing that you have ${condition || 'your health concern'} with me. <br><br> To help you better, please provide your **Age**, **Gender**, and **Duration of ${condition || 'your condition'}**."`
@@ -120,43 +120,19 @@ export const useChatBot = () => {
         ? `The user has provided their basic information for ${condition || 'their medical condition'}. Now ask for detailed symptoms with examples that are relevant to their specific condition. Create a concise response with condition-specific examples. For example, if they mentioned diabetes: "Thank you for providing the necessary information. <br><br> Now please share your **symptoms in detail**. For example — if you're talking about diabetes, you can write: \n"I've had diabetes for 3 years, my blood sugar levels are often high in the morning, I feel thirsty frequently, and I've been experiencing blurred vision lately.\n" Keep your response concise and focused on asking for details about their specific condition: ${condition || 'their mentioned condition'}.`
         : `المستخدم قدم معلوماته الأساسية لـ ${condition || 'حالته الطبية'}. الآن اطلب منه أعراضه التفصيلية مع أمثلة ذات صلة بحالته المحددة. قم بإنشاء رد موجز مع أمثلة خاصة بالحالة. على سبيل المثال، إذا ذكروا السكري: "شكراً لتقديم المعلومات الضرورية. <br><br> الآن يرجى مشاركة **أعراضك بالتفصيل**. على سبيل المثال — إذا كنت تتحدث عن السكري، يمكنك كتابة: "لدي السكري منذ 3 سنوات، مستويات السكر في الدم غالباً ما تكون مرتفعة في الصباح، أشعر بالعطش كثيراً، وقد كنت أعاني من ضعف الرؤية مؤخراً." احتفظ ردك موجز وركز على طلب التفاصيل حول حالتهم المحددة: ${condition || 'حالتهم المذكورة'}.`;
     } else if (conversationStage === 3) {
-      return generateMedicalPrompt(userInfo, isEnglish, condition);
+      return isEnglish
+        ? `${cornerCases}\n\nPatient Context: ${context}. Respond in English with SPECIALIST_RECOMMENDATION. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
+      These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions. The CTA should be creative and different each time, encouraging users to ask for more specific information about their condition: ${condition || 'their mentioned condition'}.`
+        : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء. يجب أن يكون CTA إبداعيًا ومختلفًا في كل مرة، ويشجع المستخدمين على طلب معلومات أكثر تحديدًا حول حالتهم: ${condition || 'حالتهم المذكورة'}.`;
     } else if (conversationStage === 4 || conversationStage === 5) {
-      return generateCarePlanPrompt(userInfo, lastCondition, isEnglish);
+      return isEnglish
+        ? `${cornerCases}\n\nPatient Context: ${context}. The user has requested a complete care plan and detailed guidelines for ${condition || 'their condition'}. Provide a comprehensive care plan with specific steps, home remedies, when to seek medical help, and preventive measures tailored to their specific condition. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
+        These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions.`
+        : `${cornerCases}\n\nسياق المريض: ${context}. طلب المستخدم خطة رعاية كاملة وإرشادات مفصلة لـ ${condition || 'حالتهم'}. قدم خطة رعاية شاملة مع خطوات محددة وعلاجات منزلية ومتى تطلب المساعدة الطبية والتدابير الوقائية المصممة خصيصاً لحالتهم. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء.`;
     }
 
     return generateMedicalPrompt(userInfo, isEnglish, condition);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userInfo, isEnglish, hasRequiredInfo, getMissingInfo, extractUserInfoFromMessage, updateUserInfo, conversationStage, lastCondition]);
-
-  const generateCarePlanPrompt = (userInfo, condition, isEnglish) => {
-    const context = `Age: ${userInfo?.age || 'not provided'}, Gender: ${userInfo?.gender || 'not provided'}, Duration: ${userInfo?.duration || 'not provided'}, Symptoms: ${userInfo?.symptoms || 'not provided'}, Condition: ${condition}`;
-
-    if (conversationStage === 4) {
-      return isEnglish
-        ? `${cornerCases}\n\nPatient Context: ${context}. The user has requested a complete care plan and detailed guidelines for ${condition || 'their condition'}. Provide a comprehensive care plan with specific steps, home remedies, when to seek medical help, and preventive measures tailored to their specific condition. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
-        <br>
-        <b>These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions.</b>`
-        : `${cornerCases}\n\nسياق المريض: ${context}. طلب المستخدم خطة رعاية كاملة وإرشادات مفصلة لـ ${condition || 'حالتهم'}. قدم خطة رعاية شاملة مع خطوات محددة وعلاجات منزلية ومتى تطلب المساعدة الطبية والتدابير الوقائية المصممة خصيصاً لحالتهم. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء.`;
-    } else {
-      return isEnglish
-        ? `${cornerCases}\n\nPatient Context: ${context}. Continue providing helpful medical information related to their specific condition: ${condition || 'their condition'}. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
-        <br>
-        <b>These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions.</b>`
-        : `${cornerCases}\n\nسياق المريض: ${context}. استمر في تقديم معلومات طبية مفيدة تتعلق بحالتهم المحددة: ${condition || 'حالتهم'}. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء.`;
-    }
-  };
-
-  const generateMedicalPrompt = (userInfo, isEnglish, condition) => {
-    const context = `Age: ${userInfo?.age || 'not provided'}, Gender: ${userInfo?.gender || 'not provided'}, Duration: ${userInfo?.duration || 'not provided'}, Symptoms: ${userInfo?.symptoms || 'not provided'}, Condition: ${condition || 'not specified'}`;
-
-    return isEnglish
-      ? `${cornerCases}\n\nPatient Context: ${context}. Respond in English with SPECIALIST_RECOMMENDATION. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
-      <br>
-      These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions. The CTA should be creative and different each time, encouraging users to ask for more specific information about their condition: ${condition || 'their mentioned condition'}.`
-      : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء. يجب أن يكون CTA إبداعيًا ومختلفًا في كل مرة، ويشجع المستخدمين على طلب معلومات أكثر تحديدًا حول حالتهم: ${condition || 'حالتهم المذكورة'}.`;
-  };
-
+  }, [extractUserInfoFromMessage, userInfo, conversationStage, generateMedicalPrompt, isEnglish, updateUserInfo]);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (inputText) => {

@@ -16,8 +16,6 @@ const useApiMedicalValidation = () => {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${apiKey}`,
-                    "HTTP-Referer": "http://localhost:5173",
-                    "X-Title": "MedAl Agent Medical",
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({

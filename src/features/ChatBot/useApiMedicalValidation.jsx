@@ -16,10 +16,13 @@ const useApiMedicalValidation = () => {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${apiKey}`,
+                    "HTTP-Referer": "http://localhost:5173",
+                    "X-Title": "MedAl Agent Medical",
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    model: "mistralai/mistral-small-24b-instruct-2501:free",
+                    model: "qwen/qwen2.5-vl-72b-instruct",
+                    // model: "mistralai/mistral-small-24b-instruct-2501",
                     messages: [
                         { role: "system", content: validationPrompt },
                         { role: "user", content: userMessage }

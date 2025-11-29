@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaAmbulance, FaLanguage, FaMicrophone, FaPaperPlane, FaStethoscope } from "react-icons/fa";
 import VoiceInputModal from "../../components/VoiceInputModal";
 import { useLanguage } from "../../contexts/LanguageContext";
@@ -136,28 +136,66 @@ const InputSection = ({
     inputText, setInputText, isEnglish, language, isButtonDisabled, getButtonText,
     isProcessing, handleSendMessage, handleKeyDown, autoResizeTextarea,
     textareaRef, setIsVoiceModalOpen, sessionLimitReached
-}) => (
-    <div className="mt-4">
-        {sessionLimitReached && (
-            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-                <p className="text-yellow-700 font-medium">
-                    {isEnglish ? "You've reached the chat limit for this session. Please start a new one to continue." : "لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة."}
-                </p>
-            </div>
-        )}
+}) => {
+    const [wordCount, setWordCount] = useState(0);
+    const MAX_WORDS = 1843;
 
-        <div className="flex flex-col md:flex-row gap-2 items-stretch md:items-end">
-            <div className="flex-1 relative">
-                <textarea ref={textareaRef} placeholder={sessionLimitReached ? (isEnglish ? "Session limit reached. Start a new chat to continue." : "تم الوصول إلى الحد الأقصى للجلسة. ابدأ محادثة جديدة للمتابعة.") : (isEnglish ? "Please enter your symptoms..." : "الرجاء إدخال الأعراض الخاصة بك...")} rows={1} className={`w-full text-base border border-gray-300 dark:bg-gray-800 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none leading-relaxed max-h-40 overflow-y-auto pr-12 ${isEnglish ? "text-left" : "text-right"} disabled:opacity-50 disabled:cursor-not-allowed`} dir={isEnglish ? "ltr" : "rtl"} value={inputText} onChange={(e) => setInputText(e.target.value)} onInput={() => autoResizeTextarea(textareaRef)} onKeyDown={handleKeyDown} disabled={sessionLimitReached} />
-                <VoiceInputButton onClick={() => setIsVoiceModalOpen(true)} disabled={sessionLimitReached} />
+    useEffect(() => {
+        if (inputText.trim() === '') {
+            setWordCount(0);
+        } else {
+            const count = inputText.length;
+            setWordCount(count);
+        }
+    }, [inputText]);
+
+    const isOverLimit = wordCount > MAX_WORDS;
+
+    const handleInputChange = (e) => {
+        const text = e.target.value;
+
+        if (text.length <= MAX_WORDS) {
+            setInputText(text);
+        }
+    };
+
+    const finalIsButtonDisabled = isButtonDisabled || isOverLimit;
+
+    return (
+        <div className="mt-4">
+            {sessionLimitReached && (
+                <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                    <p className="text-yellow-700 font-medium">
+                        {isEnglish ? "You've reached the chat limit for this session. Please start a new one to continue." : "لقد وصلت إلى الحد الأقصى للمحادثة في هذه الجلسة. يرجى بدء جلسة جديدة للمتابعة."}
+                    </p>
+                </div>
+            )}
+
+            {isOverLimit && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+                    <p className="text-red-700 font-medium">
+                        {isEnglish ? `Word limit exceeded! Maximum ${MAX_WORDS} characters allowed.` : `تم تجاوز الحد المسموح! الحد الأقصى ${MAX_WORDS} حرفًا.`}
+                    </p>
+                </div>
+            )}
+
+            <div className="flex flex-col md:flex-row gap-2 items-stretch md:items-end">
+                <div className="flex-1 relative">
+                    <textarea ref={textareaRef} placeholder={sessionLimitReached ? (isEnglish ? "Session limit re Start a new chat to continue." : "تم الوصول إلى الحد الأقصى للجلسة. ابدأ محادثة جديدة للمتابعة.") : (isEnglish ? "Please enter your symptoms..." : "الرجاء إدخال الأعراض الخاصة بك...")} rows={1} className={`w-full text-base border ${isOverLimit ? 'border-red-300' : 'border-gray-300'} dark:bg-gray-800 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 ${isOverLimit ? 'focus:ring-red-500 focus:border-red-500' : 'focus:ring-blue-500 focus:border-blue-500'} resize-none leading-relaxed max-h-40 overflow-y-auto pr-12 ${isEnglish ? "text-left" : "text-right"} disabled:opacity-50 disabled:cursor-not-allowed`} dir={isEnglish ? "ltr" : "rtl"} value={inputText} onChange={handleInputChange} onInput={() => autoResizeTextarea(textareaRef)} onKeyDown={handleKeyDown} disabled={sessionLimitReached || isOverLimit} />
+                    <VoiceInputButton onClick={() => setIsVoiceModalOpen(true)} disabled={sessionLimitReached || isOverLimit} />
+
+                    <div className={`text-xs font-medium transition-colors duration-200 ${isOverLimit ? 'text-red-600' : 'text-gray-500'}`}>
+                        {wordCount} / {MAX_WORDS} {isOverLimit && '⚠️'}
+                    </div>
+                </div>
+
+                <SendButton onClick={handleSendMessage} disabled={finalIsButtonDisabled} isProcessing={isProcessing} getButtonText={getButtonText} sessionLimitReached={sessionLimitReached} isOverLimit={isOverLimit} />
             </div>
 
-            <SendButton onClick={handleSendMessage} disabled={isButtonDisabled} isProcessing={isProcessing} getButtonText={getButtonText} sessionLimitReached={sessionLimitReached} />
+            <InputFooter isEnglish={isEnglish} language={language} />
         </div>
-
-        <InputFooter isEnglish={isEnglish} language={language} />
-    </div>
-);
+    );
+};
 
 const VoiceInputButton = ({ onClick, disabled }) => (
     <button onClick={onClick} disabled={disabled} className="absolute right-3 bottom-3 p-2 bg-gray-300 rounded-full text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed" title="Voice Input" >
@@ -165,10 +203,12 @@ const VoiceInputButton = ({ onClick, disabled }) => (
     </button>
 );
 
-const SendButton = ({ onClick, disabled, isProcessing, getButtonText, sessionLimitReached }) => (
-    <button onClick={onClick} disabled={disabled} className="w-full md:w-auto px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2" >
+const SendButton = ({ onClick, disabled, isProcessing, getButtonText, sessionLimitReached, isOverLimit }) => (
+    <button onClick={onClick} disabled={disabled} className="w-full md:w-auto px-5 py-3 rounded-xl text-white shadow-sm text-sm font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative">
         {sessionLimitReached ? (
             <span>🚫</span>
+        ) : isOverLimit ? (
+            <span>⚠️</span>
         ) : isProcessing ? (
             <div className="flex items-center gap-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

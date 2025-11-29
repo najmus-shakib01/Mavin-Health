@@ -1,12 +1,36 @@
 /* eslint-disable react/prop-types */
+import { useEffect, useState } from "react";
 import { FaMicrophone, FaPaperPlane } from "react-icons/fa";
 
 const ChatInput = ({ inputText, setInputText, isEnglish, autoResizeTextarea,
   handleSendMessage, setIsVoiceModalOpen, sendMessageMutation, textareaRef, sessionLimitReached }) => {
+
+  const [wordCount, setWordCount] = useState(0);
+  const MAX_WORDS = 1843;
+
+  useEffect(() => {
+    if (inputText.trim() === '') {
+      setWordCount(0);
+    } else {
+      const count = inputText.length;
+      setWordCount(count);
+    }
+  }, [inputText]);
+
+  const isOverLimit = wordCount > MAX_WORDS;
+
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey && !sessionLimitReached) {
+    if (e.key === 'Enter' && !e.shiftKey && !sessionLimitReached && !isOverLimit) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const text = e.target.value;
+
+    if (text.length <= MAX_WORDS) {
+      setInputText(text);
     }
   };
 
@@ -14,16 +38,16 @@ const ChatInput = ({ inputText, setInputText, isEnglish, autoResizeTextarea,
     ? (isEnglish ? "Session limit reached. Start a new chat to continue." : "تم الوصول إلى الحد الأقصى للجلسة. ابدأ محادثة جديدة للمتابعة.")
     : (isEnglish ? "Please enter your symptoms..." : "الرجاء إدخال الأعراض الخاصة بك...");
 
-  const isDisabled = sendMessageMutation.isPending || !inputText.trim() || sessionLimitReached;
+  const isDisabled = sendMessageMutation.isPending || !inputText.trim() || sessionLimitReached || isOverLimit;
 
   return (
     <div className="p-4 border-t border-gray-200 dark:border-gray-700">
       {sessionLimitReached && <SessionLimitWarning isEnglish={isEnglish} />}
 
       <div className="flex items-end gap-2">
-        <TextAreaWithVoice inputText={inputText} setInputText={setInputText} placeholder={placeholder} autoResizeTextarea={autoResizeTextarea} handleKeyDown={handleKeyDown} setIsVoiceModalOpen={setIsVoiceModalOpen} textareaRef={textareaRef} disabled={sessionLimitReached} />
+        <TextAreaWithVoice inputText={inputText} setInputText={handleInputChange} placeholder={placeholder} autoResizeTextarea={autoResizeTextarea} handleKeyDown={handleKeyDown} setIsVoiceModalOpen={setIsVoiceModalOpen} textareaRef={textareaRef} disabled={sessionLimitReached || isOverLimit} wordCount={wordCount} maxWords={MAX_WORDS} isOverLimit={isOverLimit} />
 
-        <SendButton onClick={handleSendMessage} disabled={isDisabled} isPending={sendMessageMutation.isPending} sessionLimitReached={sessionLimitReached} />
+        <SendButton onClick={handleSendMessage} disabled={isDisabled} isPending={sendMessageMutation.isPending} sessionLimitReached={sessionLimitReached} isOverLimit={isOverLimit} />
       </div>
     </div>
   );
@@ -38,10 +62,18 @@ const SessionLimitWarning = ({ isEnglish }) => (
 );
 
 const TextAreaWithVoice = ({ inputText, setInputText, placeholder, autoResizeTextarea,
-  handleKeyDown, setIsVoiceModalOpen, textareaRef, disabled }) => (
+  handleKeyDown, setIsVoiceModalOpen, textareaRef, disabled, wordCount, maxWords, isOverLimit }) => (
   <div className="flex-1 relative">
-    <textarea ref={textareaRef} placeholder={placeholder} rows={1} className="w-full text-sm border border-gray-300 dark:bg-gray-700 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed" value={inputText} onChange={(e) => setInputText(e.target.value)} onInput={() => autoResizeTextarea(textareaRef)} onKeyDown={handleKeyDown} disabled={disabled} />
+    <textarea ref={textareaRef} placeholder={placeholder} rows={1} className="w-full text-sm border border-gray-300 dark:bg-gray-700 dark:border-gray-600 shadow-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed" value={inputText} onChange={setInputText} onInput={() => autoResizeTextarea(textareaRef)} onKeyDown={handleKeyDown} disabled={disabled} />
     <VoiceInputButton onClick={() => setIsVoiceModalOpen(true)} disabled={disabled} />
+
+    <WordCounter wordCount={wordCount} maxWords={maxWords} isOverLimit={isOverLimit} />
+  </div>
+);
+
+const WordCounter = ({ wordCount, maxWords, isOverLimit }) => (
+  <div className={`text-xs font-medium transition-colors duration-200 ${isOverLimit ? 'text-red-600' : 'text-gray-500'}`}>
+    {wordCount} / {maxWords} {isOverLimit && '⚠️'}
   </div>
 );
 
@@ -51,13 +83,14 @@ const VoiceInputButton = ({ onClick, disabled }) => (
   </button>
 );
 
-const SendButton = ({ onClick, disabled, isPending, sessionLimitReached }) => (
-  <button onClick={onClick} disabled={disabled} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-  >
+const SendButton = ({ onClick, disabled, isPending, sessionLimitReached, isOverLimit }) => (
+  <button onClick={onClick} disabled={disabled} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition relative">
     {isPending ? (
       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
     ) : sessionLimitReached ? (
       <span className="text-xs">🚫</span>
+    ) : isOverLimit ? (
+      <span className="text-xs">⚠️</span>
     ) : (
       <FaPaperPlane className="h-4 w-4" />
     )}

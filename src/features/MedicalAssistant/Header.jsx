@@ -1,4 +1,3 @@
-/* eslint-disable react/prop-types */
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FaStethoscope } from "react-icons/fa";
@@ -32,15 +31,18 @@ const HeaderTitle = () => (
         </div>
         <div>
             <h1 className="text-base sm:text-lg md:text-2xl font-bold leading-tight">Medical Assistant</h1>
-            <p className="text-blue-100 text-xs sm:text-sm md:text-base pt-3 md:pt-1">AI-Powered Medical Symptom Analytics</p>
+            <p className="text-blue-100 text-xs sm:text-sm md:text-base pt-3 md:pt-1">
+                AI-Powered Medical Symptom Analytics
+            </p>
         </div>
     </div>
 );
 
+// eslint-disable-next-line react/prop-types
 const HeaderControls = ({ darkMode, setDarkMode }) => (
     <div className="flex items-center gap-2 md:gap-4">
         <LanguageSelector />
-        <button onClick={() => setDarkMode(!darkMode)} className="p-1.5 md:p-2 text-white bg-blue-600 dark:bg-blue-400 rounded-full transition-colors" aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}>
+        <button onClick={() => setDarkMode(!darkMode)} className="p-1.5 md:p-2 text-white bg-blue-600 dark:bg-blue-400 rounded-full transition-colors hover:bg-blue-700 dark:hover:bg-blue-500" aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}>
             {darkMode ? <Sun size={18} className="w-4 h-4 md:w-5 md:h-5" /> : <Moon size={18} className="w-4 h-4 md:w-5 md:h-5" />}
         </button>
     </div>

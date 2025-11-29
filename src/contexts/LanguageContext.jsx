@@ -1,41 +1,55 @@
-/* eslint-disable react/prop-types */
 import { createContext, useContext, useEffect, useState } from 'react';
+import { useLocation } from './LocationContext';
 
 const LanguageContext = createContext();
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
-  if (!context) throw new Error('useLanguage must be used within a LanguageProvider');
+  if (!context) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
   return context;
 };
 
-export const LanguageProvider = ({ children, clientRegion = 'saudi' }) => {
+// eslint-disable-next-line react/prop-types
+export const LanguageProvider = ({ children }) => {
   const [language, setLanguage] = useState('english');
   const [availableLanguages, setAvailableLanguages] = useState(['english', 'arabic']);
+  const { countryCode, isUSA } = useLocation();
 
   useEffect(() => {
-    if (clientRegion === 'usa') {
+    if (isUSA) {
       setAvailableLanguages(['english']);
       setLanguage('english');
     } else {
       setAvailableLanguages(['english', 'arabic']);
+
       const savedLanguage = localStorage.getItem('selectedLanguage');
       if (savedLanguage && ['english', 'arabic'].includes(savedLanguage)) {
         setLanguage(savedLanguage);
       }
     }
-  }, [clientRegion]);
+  }, [isUSA, countryCode]);
 
   const changeLanguage = (lang) => {
     if (availableLanguages.includes(lang)) {
       setLanguage(lang);
       localStorage.setItem('selectedLanguage', lang);
+
       window.dispatchEvent(new CustomEvent('languageChanged', { detail: lang }));
     }
   };
 
-  const value = { language, changeLanguage, availableLanguages, isEnglish: language === 'english', isArabic: language === 'arabic', direction: language === 'arabic' ? 'rtl' : 'ltr', clientRegion };
+  const value = {
+    language,
+    changeLanguage,
+    availableLanguages,
+    isEnglish: language === 'english',
+    isArabic: language === 'arabic',
+    direction: language === 'arabic' ? 'rtl' : 'ltr',
+    countryCode,
+  };
 
   return (
     <LanguageContext.Provider value={value}>

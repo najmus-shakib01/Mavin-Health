@@ -24,7 +24,7 @@ const HeaderInfo = ({ messageCount, isEnglish }) => (
     <div>
       <h3 className="font-semibold text-gray-800 dark:text-white text-sm sm:text-base whitespace-nowrap">Medical Assistant</h3>
       <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-        {messageCount > 0 ? `${messageCount}/15 ${isEnglish ? 'messages' : 'رسائل'}` : `${isEnglish ? 'AI-powered medical consultation' : 'استشارة طبية مدعومة بالذكاء الاصطناعي'}`}
+        {messageCount > 0 ? `${messageCount}/15 ${isEnglish ? 'messages' : 'رسائل'}` : `private and personal AI symptom checker`}
       </p>
     </div>
   </div>

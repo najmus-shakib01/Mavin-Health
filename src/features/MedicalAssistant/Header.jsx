@@ -40,7 +40,7 @@ const HeaderTitle = () => (
                 </div>
             </div>
             <p className="text-blue-100 text-xs sm:text-sm md:text-base pt-3 md:pt-1">
-                AI-Powered Medical Symptom Analytics
+                your private and personal AI symptom checker.
             </p>
         </div>
     </div>

@@ -1,4 +1,4 @@
-import { Moon, Sun } from "lucide-react";
+import { Lock, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FaStethoscope } from "react-icons/fa";
 import LanguageSelector from "../../components/LanguageSelector";
@@ -30,7 +30,15 @@ const HeaderTitle = () => (
             <FaStethoscope className="w-6 h-6 md:w-8 md:h-8" />
         </div>
         <div>
-            <h1 className="text-base sm:text-lg md:text-2xl font-bold leading-tight">Medical Assistant</h1>
+            <div className="flex flex-col md:flex-row md:items-center md:gap-4">
+                <div>
+                    <h1 className="text-base sm:text-lg md:text-2xl font-bold leading-tight">Medical Assistant</h1>
+                </div>
+                <div className="flex text-center items-center text-sm">
+                    <Lock className="w-4 h-4" />&nbsp;
+                    <span className="whitespace-nowrap">HIPAA · Private</span>
+                </div>
+            </div>
             <p className="text-blue-100 text-xs sm:text-sm md:text-base pt-3 md:pt-1">
                 AI-Powered Medical Symptom Analytics
             </p>

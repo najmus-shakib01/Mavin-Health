@@ -78,7 +78,7 @@ const WordCounter = ({ wordCount, maxWords, isOverLimit }) => (
 );
 
 const VoiceInputButton = ({ onClick, disabled }) => (
-  <button onClick={onClick} className="absolute right-3 bottom-3 p-2 bg-gray-300 rounded-full text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed" title="Voice Input" disabled={disabled}>
+  <button onClick={onClick} className="absolute right-3 bottom-3 p-2 mb-4 bg-gray-300 rounded-full text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed" title="Voice Input" disabled={disabled}>
     <FaMicrophone className="h-5 w-5" />
   </button>
 );

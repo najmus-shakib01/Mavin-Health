@@ -1,48 +1,85 @@
-// contexts/SessionContext.jsx
 /* eslint-disable react/prop-types */
-import { createContext, useCallback, useContext, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
-const SessionContext = createContext();
+const SessionContext = createContext(null);
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useSession = () => {
-    const context = useContext(SessionContext);
-    if (!context) throw new Error('useSession must be used within a SessionProvider');
-    return context;
+  const ctx = useContext(SessionContext);
+  if (!ctx) throw new Error("useSession must be used within a SessionProvider");
+  return ctx;
 };
 
+const DEFAULT_USER_INFO = Object.freeze({
+  age: "",
+  gender: "",
+  duration: "",
+  symptoms: "",
+});
+
 export const SessionProvider = ({ children }) => {
-    const [messageCount, setMessageCount] = useState(0);
-    const [sessionLimit] = useState(15);
-    const [userInfo, setUserInfo] = useState({ age: '', gender: '', duration: '', symptoms: '' });
+  const [messageCount, setMessageCount] = useState(0);
+  const [userInfo, setUserInfo] = useState(DEFAULT_USER_INFO);
 
-    const incrementMessageCount = useCallback(() => {
-        setMessageCount(prev => {
-            if (prev >= sessionLimit) return prev;
-            return prev + 1;
-        });
-    }, [sessionLimit]);
+  const sessionLimit = 15;
 
-    const resetSession = useCallback(() => {
-        setMessageCount(0);
-        setUserInfo({ age: '', gender: '', duration: '', symptoms: '' });
-    }, []);
+  const incrementMessageCount = useCallback(() => {
+    setMessageCount((prev) => (prev >= sessionLimit ? prev : prev + 1));
+  }, [sessionLimit]);
 
-    const updateUserInfo = useCallback((newInfo) => {
-        setUserInfo(prev => ({ ...prev, ...newInfo }));
-    }, []);
+  const resetSession = useCallback(() => {
+    setMessageCount(0);
+    setUserInfo(DEFAULT_USER_INFO);
+  }, []);
 
-    const hasRequiredInfo = useCallback(() =>
-        userInfo.age && userInfo.gender && userInfo.duration
-        , [userInfo]);
+  const updateUserInfo = useCallback((partial) => {
+    if (!partial || typeof partial !== "object") return;
 
-    const value = {
-        messageCount, sessionLimit, sessionLimitReached: messageCount >= sessionLimit, incrementMessageCount, resetSession, userInfo, updateUserInfo, hasRequiredInfo
-    };
+    setUserInfo((prev) => {
+      const cleaned = Object.fromEntries(
+        Object.entries(partial).filter(
+          ([, v]) => v !== undefined && v !== null && String(v).trim() !== ""
+        )
+      );
 
-    return (
-        <SessionContext.Provider value={value}>
-            {children}
-        </SessionContext.Provider>
-    );
+      if (Object.keys(cleaned).length === 0) return prev;
+      return { ...prev, ...cleaned };
+    });
+  }, []);
+
+  const hasRequiredInfo = useCallback(() => {
+    return Boolean(userInfo.age && userInfo.gender && userInfo.duration);
+  }, [userInfo]);
+
+  const value = useMemo(
+    () => ({
+      messageCount,
+      sessionLimit,
+      sessionLimitReached: messageCount >= sessionLimit,
+      incrementMessageCount,
+      resetSession,
+      userInfo,
+      updateUserInfo,
+      hasRequiredInfo,
+    }),
+    [
+      messageCount,
+      sessionLimit,
+      incrementMessageCount,
+      resetSession,
+      userInfo,
+      updateUserInfo,
+      hasRequiredInfo,
+    ]
+  );
+
+  return (
+    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+  );
 };

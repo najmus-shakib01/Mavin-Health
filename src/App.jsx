@@ -5,7 +5,6 @@ import ChatBotButton from "./components/ChatBotButton";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { LocationProvider } from "./contexts/LocationContext";
-import { SessionProvider } from "./contexts/SessionContext";
 import Routes from "./routes/Routes";
 
 const queryClient = new QueryClient();
@@ -15,16 +14,14 @@ const App = () => {
     <ErrorBoundary>
       <LocationProvider>
         <LanguageProvider>
-          <SessionProvider>
-            <QueryClientProvider client={queryClient}>
-              <RouterProvider router={Routes} />
-              <ChatBotButton />
-            </QueryClientProvider>
-          </SessionProvider>
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={Routes} />
+            <ChatBotButton />
+          </QueryClientProvider>
         </LanguageProvider>
       </LocationProvider>
     </ErrorBoundary>
   );
-}
+};
 
 export default App;

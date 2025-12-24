@@ -15,7 +15,6 @@ export const useChatBot = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEmergencyAlert, setShowEmergencyAlert] = useState(false);
   const [conversationStage, setConversationStage] = useState(1);
-  const [lastPromptStage, setLastPromptStage] = useState(1);
   const [apiError, setApiError] = useState(null);
   const [, setLastCondition] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -99,135 +98,41 @@ export const useChatBot = () => {
     return `${cornerCases}\n\nسياق المريض: ${context}. قدم تقييمًا طبيًا موجزًا لـ ${conditionParam || 'الحالة المذكورة'}، واقترح الخطوات التالية، ومتى يلزم طلب العناية العاجلة، والتدابير الوقائية المحتملة. قم بتضمين دعوة ودية لطلب مزيد من التفاصيل أو طرح أسئلة متابعة.`;
   }, []);
 
-  const generateSystemPrompt = useCallback(
-    (userMessage) => {
-      const extractedInfo = extractUserInfoFromMessage(userMessage);
+  const generateSystemPrompt = useCallback((userMessage) => {
+    const extractedInfo = extractUserInfoFromMessage(userMessage);
+    const hasNewInfo = extractedInfo.age || extractedInfo.gender || extractedInfo.duration || extractedInfo.symptoms;
 
-      const safeUpdate = {};
-      if (extractedInfo.age) safeUpdate.age = extractedInfo.age;
-      if (extractedInfo.gender) safeUpdate.gender = extractedInfo.gender;
-      if (extractedInfo.duration) safeUpdate.duration = extractedInfo.duration;
-      if (extractedInfo.symptoms) safeUpdate.symptoms = extractedInfo.symptoms;
+    const condition = extractMainCondition(userMessage);
+    if (condition) setLastCondition(condition);
 
-      const mergedUserInfo = {
-        ...userInfo,
-        ...safeUpdate,
-      };
+    if (hasNewInfo) {
+      updateUserInfo(extractedInfo);
+    }
 
-      if (Object.keys(safeUpdate).length > 0) {
-        updateUserInfo(safeUpdate);
-      }
+    const context = `Age: ${userInfo?.age || 'not provided'}, Gender: ${userInfo?.gender || 'not provided'}, Duration: ${userInfo?.duration || 'not provided'}, Symptoms: ${userInfo?.symptoms || 'not provided'}, Condition: ${condition || 'not specified'}`;
 
-      const condition = extractMainCondition(userMessage);
-      if (condition) setLastCondition(condition);
+    if (conversationStage === 1) {
+      return isEnglish
+        ? `The user has shared their initial symptoms related to ${condition || 'a medical condition'}. Ask for their age, gender, and problem duration. Create a dynamic response that acknowledges their specific condition. For example: "Thank you for sharing that you have ${condition || 'your health concern'} with me. <br><br> To help you better, please provide your **Age**, **Gender**, and **Duration of ${condition || 'your condition'}**."`
+        : `المستخدم شارك أعراضه الأولية المتعلقة بـ ${condition || 'حالة طبية'}. اطلب منه العمر والجنس ومدة المشكلة. قم بإنشاء رد ديناميكي يعترف بحالته المحددة. على سبيل المثال: "شكراً لمشاركة أن لديك ${condition || 'حالتك الصحية'} معي. <br><br> لمساعدتك بشكل أفضل، يرجى تقديم **العمر**، **الجنس**، و**مدة ${condition || 'حالتك'}**."`;
+    } else if (conversationStage === 2) {
+      return isEnglish
+        ? `The user has provided their basic information for ${condition || 'their medical condition'}. Now ask for detailed symptoms with examples that are relevant to their specific condition. Create a concise response with condition-specific examples. For example, if they mentioned diabetes: "Thank you for providing the necessary information. <br><br> Now please share your **symptoms in detail**. For example — if you're talking about diabetes, you can write: \n"I've had diabetes for 3 years, my blood sugar levels are often high in the morning, I feel thirsty frequently, and I've been experiencing blurred vision lately.\n" Keep your response concise and focused on asking for details about their specific condition: ${condition || 'their mentioned condition'}.`
+        : `المستخدم قدم معلوماته الأساسية لـ ${condition || 'حالته الطبية'}. الآن اطلب منه أعراضه التفصيلية مع أمثلة ذات صلة بحالته المحددة. قم بإنشاء رد موجز مع أمثلة خاصة بالحالة. على سبيل المثال، إذا ذكروا السكري: "شكراً لتقديم المعلومات الضرورية. <br><br> الآن يرجى مشاركة **أعراضك بالتفصيل**. على سبيل المثال — إذا كنت تتحدث عن السكري، يمكنك كتابة: "لدي السكري منذ 3 سنوات، مستويات السكر في الدم غالباً ما تكون مرتفعة في الصباح، أشعر بالعطش كثيراً، وقد كنت أعاني من ضعف الرؤية مؤخراً." احتفظ ردك موجز وركز على طلب التفاصيل حول حالتهم المحددة: ${condition || 'حالتهم المذكورة'}.`;
+    } else if (conversationStage === 3) {
+      return isEnglish
+        ? `${cornerCases}\n\nPatient Context: ${context}. Respond in English with SPECIALIST_RECOMMENDATION. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
+      These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions. The CTA should be creative and different each time, encouraging users to ask for more specific information about their condition: ${condition || 'their mentioned condition'}.`
+        : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء. يجب أن يكون CTA إبداعيًا ومختلفًا في كل مرة، ويشجع المستخدمين على طلب معلومات أكثر تحديدًا حول حالتهم: ${condition || 'حالتهم المذكورة'}.`;
+    } else if (conversationStage === 4 || conversationStage === 5) {
+      return isEnglish
+        ? `${cornerCases}\n\nPatient Context: ${context}. The user has requested a complete care plan and detailed guidelines for ${condition || 'their condition'}. Provide a comprehensive care plan with specific steps, home remedies, when to seek medical help, and preventive measures tailored to their specific condition. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
+        These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions.`
+        : `${cornerCases}\n\nسياق المريض: ${context}. طلب المستخدم خطة رعاية كاملة وإرشادات مفصلة لـ ${condition || 'حالتهم'}. قدم خطة رعاية شاملة مع خطوات محددة وعلاجات منزلية ومتى تطلب المساعدة الطبية والتدابير الوقائية المصممة خصيصاً لحالتهم. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء.`;
+    }
 
-      const hasAge = !!mergedUserInfo.age;
-      const hasGender = !!mergedUserInfo.gender;
-      const hasDuration = !!mergedUserInfo.duration;
-      const hasAllRequired = hasAge && hasGender && hasDuration;
-
-      let stageForPrompt;
-
-      if (!hasAllRequired) {
-        stageForPrompt = 1;
-      } else if (conversationStage <= 1) {
-        stageForPrompt = 2;
-      } else if (conversationStage === 2) {
-        stageForPrompt = 3;
-      } else {
-        stageForPrompt = conversationStage;
-      }
-
-      setLastPromptStage(stageForPrompt);
-
-      const context = `Age: ${mergedUserInfo?.age || "not provided"}, Gender: ${mergedUserInfo?.gender || "not provided"
-        }, Duration: ${mergedUserInfo?.duration || "not provided"}, Symptoms: ${mergedUserInfo?.symptoms || "not provided"
-        }, Condition: ${condition || "not specified"}`;
-
-      if (stageForPrompt === 1) {
-        const missingEn = [];
-        if (!hasAge) missingEn.push("age");
-        if (!hasGender) missingEn.push("gender");
-        if (!hasDuration)
-          missingEn.push("how long you have had this problem (in days)");
-
-        const missingAr = [];
-        if (!hasAge) missingAr.push("العمر");
-        if (!hasGender) missingAr.push("الجنس");
-        if (!hasDuration)
-          missingAr.push("مدة استمرار المشكلة (بعدد الأيام)");
-
-        const joinWithAnd = (items, andWord, separator) => {
-          if (items.length === 1) return items[0];
-          if (items.length === 2) return `${items[0]} ${andWord} ${items[1]}`;
-          return `${items.slice(0, -1).join(separator)} ${andWord} ${items[items.length - 1]
-            }`;
-        };
-
-        if (isEnglish) {
-          const missingText = joinWithAnd(missingEn, "and", ", ");
-          return `The user has shared their initial symptoms related to ${condition || "a medical condition"}. Your ONLY goal in this reply is to collect their **${missingText}**.
-          Rules:
-          - Do NOT ask for detailed symptoms yet.
-          - If they provide some of these but not all, politely ask ONLY for the missing ones.
-          - Do not give any medical explanation or possible causes yet.
-
-          Reply briefly and kindly. For example:
-          "Thank you for sharing that you have ${condition || "this health concern"
-            }. <br><br> To help you better, please tell me your ${missingText}."`;
-        }
-
-        const missingTextAr = joinWithAnd(missingAr, "و", "، ");
-        return `المستخدم شارك أعراضه الأولية المتعلقة بـ ${condition || "حالة طبية"
-          }. مهمتك الوحيدة في هذا الرد هي جمع **${missingTextAr}**.
-
-        القواعد:
-        - لا تطلب وصف الأعراض بالتفصيل بعد.
-        - إذا قدّم المستخدم بعض هذه المعلومات فقط، فاطلب بلطف المعلومات الناقصة فقط.
-        - لا تقدّم أي تفسير طبي أو تشخيص أو أسباب محتملة في هذه المرحلة.
-
-        اجب بشكل مختصر وواضح، مثلاً:
-        "شكرًا لمشاركتك هذه المشكلة الصحية معي. <br><br> لمساعدتك بشكل أفضل، من فضلك اذكر ${missingTextAr}."`;
-      }
-
-      if (stageForPrompt === 2) {
-        return isEnglish
-          ? `The user has already provided their basic information (age, gender, and duration) for ${condition || "their medical condition"}. Now your ONLY task is to ask them to describe their **symptoms in detail**.
-
-              Keep the reply focused on collecting symptom details (what they feel, where, since when, what makes it better or worse) without giving medical explanations yet.
-
-              Create a concise response with condition‑specific examples. For example, if they mentioned diabetes:
-              "Thank you for providing the necessary information. <br><br> Now please share your **symptoms in detail**. For example — if you're talking about diabetes, you can write:
-              'I have had diabetes for 3 years, my blood sugar levels are often high in the morning, I feel thirsty frequently, and I've been experiencing blurred vision lately.'"` : `قدّم المستخدم بالفعل معلوماته الأساسية (العمر والجنس ومدة المشكلة) لـ ${condition || "حالته الطبية"
-          }. مهمتك الآن هي طلب **وصف الأعراض بالتفصيل فقط**.
-
-            ركّز في الرد على طلب تفاصيل الأعراض (ماذا تشعر بالضبط، وأين في الجسم، ومنذ متى، وما الذي يحسن أو يزيد الأعراض) دون تقديم تفسيرات طبية أو تشخيص في هذه المرحلة.
-
-            قم بإنشاء رد موجز مع أمثلة خاصة بالحالة. على سبيل المثال، إذا ذكروا السكري:
-            "شكرًا لتقديم المعلومات الضرورية. <br><br> الآن يرجى مشاركة **أعراضك بالتفصيل**. على سبيل المثال — إذا كنت تتحدث عن السكري، يمكنك كتابة:
-            'لدي السكري منذ 3 سنوات، مستويات السكر في الدم غالبًا ما تكون مرتفعة في الصباح، أشعر بالعطش كثيرًا، وقد كنت أعاني من ضعف الرؤية مؤخرًا.'"`;
-      }
-
-      if (stageForPrompt === 3) {
-        return isEnglish
-          ? `${cornerCases}\n\nPatient Context: ${context}. Respond in English with SPECIALIST_RECOMMENDATION. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
-          These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions. The CTA should be creative and different each time, encouraging users to ask for more specific information about their condition: ${condition || "their mentioned condition"}.`
-          : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء. يجب أن يكون CTA إبداعيًا ومختلفًا في كل مرة، ويشجع المستخدمين على طلب معلومات أكثر تحديدًا حول حالتهم: ${condition || "حالتهم المذكورة"
-          }.`;
-      }
-
-      if (stageForPrompt === 4 || stageForPrompt === 5) {
-        return isEnglish
-          ? `${cornerCases}\n\nPatient Context: ${context}. The user has requested a complete care plan and detailed guidelines for ${condition || "their condition"}. Provide a comprehensive care plan with specific steps, home remedies, when to seek medical help, and preventive measures tailored to their specific condition. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
-            These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions.`
-          : `${cornerCases}\n\nسياق المريض: ${context}. طلب المستخدم خطة رعاية كاملة وإرشادات مفصلة لـ ${condition || "حالتهم"}. قدم خطة رعاية شاملة مع خطوات محددة وعلاجات منزلية ومتى تطلب المساعدة الطبية والتدابير الوقائية المصممة خصيصاً لحالتهم. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء.`;
-      }
-
-      return generateMedicalPrompt(mergedUserInfo, isEnglish, condition);
-    },
-    [extractUserInfoFromMessage, userInfo, conversationStage, generateMedicalPrompt, isEnglish, updateUserInfo,]
-  );
-
+    return generateMedicalPrompt(userInfo, isEnglish, condition);
+  }, [extractUserInfoFromMessage, userInfo, conversationStage, generateMedicalPrompt, isEnglish, updateUserInfo]);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (inputText) => {
@@ -289,17 +194,12 @@ export const useChatBot = () => {
     onSuccess: (data) => {
       streamHandler.processStream(data);
       setApiError(null);
-
-      setConversationStage((prev) => {
-        if (prev >= 4) return prev;
-
-        if (lastPromptStage === 1) return 1;
-        if (lastPromptStage === 2) return 2;
-        if (lastPromptStage >= 3) return 3;
-        return prev;
-      });
+      if (conversationStage === 1) {
+        setConversationStage(2);
+      } else if (conversationStage === 2) {
+        setConversationStage(3);
+      }
     },
-
     onError: (error) => {
       handleSendMessageError(error, isEnglish, setMessages);
       setApiError(error.message);

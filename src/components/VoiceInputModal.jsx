@@ -3,32 +3,54 @@ import { useEffect, useRef, useState } from "react";
 import { FaMicrophone, FaMicrophoneSlash, FaTimes } from "react-icons/fa";
 import { useLanguage } from "../contexts/LanguageContext";
 
+const getSpeechRecognitionCtor = () => {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+};
+
 const VoiceInputModal = ({ isOpen, onClose, onTextConverted }) => {
   const [isListening, setIsListening] = useState(false);
   const [finalTranscript, setFinalTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [permissionDenied, setPermissionDenied] = useState(false);
+
   const { isEnglish } = useLanguage();
   const recognitionRef = useRef(null);
+
+  const stopRecognition = () => {
+    try {
+      recognitionRef.current?.stop();
+    } catch (e) {
+      console.log(e);
+    }
+    recognitionRef.current = null;
+    setIsListening(false);
+  };
 
   useEffect(() => {
     if (!isOpen) {
       setFinalTranscript("");
       setInterimTranscript("");
-      setIsListening(false);
       setPermissionDenied(false);
-      recognitionRef.current?.stop();
+      stopRecognition();
     }
   }, [isOpen]);
 
   const startListening = () => {
-    if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
-      alert(isEnglish ? "Speech recognition is not supported in your browser." : "التعرف على الصوت غير مدعوم في متصفحك.");
+    const Ctor = getSpeechRecognitionCtor();
+
+    if (!Ctor) {
+      alert(
+        isEnglish
+          ? "Speech recognition is not supported in your browser."
+          : "التعرف على الصوت غير مدعوم في متصفحك."
+      );
       return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    // Reset previous session safely
+    stopRecognition();
+
+    const recognition = new Ctor();
     recognitionRef.current = recognition;
 
     recognition.continuous = true;
@@ -41,30 +63,39 @@ const VoiceInputModal = ({ isOpen, onClose, onTextConverted }) => {
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const text = event.results[i][0].transcript;
-        event.results[i].isFinal ? (tempFinal += text + " ") : (tempInterim += text);
+        if (event.results[i].isFinal) tempFinal += text + " ";
+        else tempInterim += text;
       }
 
-      if (tempFinal) setFinalTranscript(prev => prev + tempFinal);
+      if (tempFinal) setFinalTranscript((prev) => prev + tempFinal);
       setInterimTranscript(tempInterim);
     };
 
     recognition.onerror = (event) => {
-      if (event.error === "not-allowed") {
+      const err = event?.error;
+      if (err === "not-allowed" || err === "service-not-allowed") {
         setPermissionDenied(true);
-        setIsListening(false);
+        stopRecognition();
       }
     };
 
-    recognition.onend = () => setIsListening(false);
+    recognition.onend = () => {
+      // If user didn't explicitly close, keep UI consistent
+      setIsListening(false);
+    };
 
-    recognition.start();
-    setIsListening(true);
-    setPermissionDenied(false);
+    try {
+      recognition.start();
+      setIsListening(true);
+      setPermissionDenied(false);
+    } catch (e) {
+      console.error(e);
+      setIsListening(false);
+    }
   };
 
   const stopListening = () => {
-    recognitionRef.current?.stop();
-    setIsListening(false);
+    stopRecognition();
   };
 
   const handleInsertText = () => {
@@ -81,9 +112,7 @@ const VoiceInputModal = ({ isOpen, onClose, onTextConverted }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold dark:text-white">
-            {isEnglish ? "Voice Input" : "الإدخال الصوتي"}
-          </h2>
+          <h2 className="text-xl font-bold dark:text-white">{isEnglish ? "Voice Input" : "الإدخال الصوتي"}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400">
             <FaTimes className="h-5 w-5" />
           </button>
@@ -92,7 +121,15 @@ const VoiceInputModal = ({ isOpen, onClose, onTextConverted }) => {
         {permissionDenied ? (
           <PermissionDeniedView isEnglish={isEnglish} onClose={onClose} />
         ) : (
-          <VoiceInputView isListening={isListening} isEnglish={isEnglish} transcriptText={transcriptText} startListening={startListening} stopListening={stopListening} handleInsertText={handleInsertText} onClose={onClose} />
+          <VoiceInputView
+            isListening={isListening}
+            isEnglish={isEnglish}
+            transcriptText={transcriptText}
+            startListening={startListening}
+            stopListening={stopListening}
+            handleInsertText={handleInsertText}
+            onClose={onClose}
+          />
         )}
       </div>
     </div>
@@ -106,7 +143,9 @@ const PermissionDeniedView = ({ isEnglish, onClose }) => (
       {isEnglish ? "Microphone Permission Denied" : "تم رفض إذن الميكروفون"}
     </h3>
     <p className="text-gray-600 dark:text-gray-300 mb-4">
-      {isEnglish ? "Please allow microphone access in your browser settings to use voice input." : "يرجى السماح بالوصول إلى الميكروفون في إعدادات المتصفح لاستخدام الإدخال الصوتي."}
+      {isEnglish
+        ? "Please allow microphone access in your browser settings to use voice input."
+        : "يرجى السماح بالوصول إلى الميكروفون في إعدادات المتصفح لاستخدام الإدخال الصوتي."}
     </p>
     <button onClick={onClose} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
       {isEnglish ? "OK" : "موافق"}
@@ -117,7 +156,12 @@ const PermissionDeniedView = ({ isEnglish, onClose }) => (
 const VoiceInputView = ({ isListening, isEnglish, transcriptText, startListening, stopListening, handleInsertText, onClose }) => (
   <>
     <div className="text-center mb-6">
-      <button onClick={isListening ? stopListening : startListening} className={`p-6 rounded-full text-white text-2xl transition-all ${isListening ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-blue-500 hover:bg-blue-600"}`}>
+      <button
+        onClick={isListening ? stopListening : startListening}
+        className={`p-6 rounded-full text-white text-2xl transition-all ${
+          isListening ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-blue-500 hover:bg-blue-600"
+        }`}
+      >
         {isListening ? <FaMicrophoneSlash /> : <FaMicrophone />}
       </button>
       <p className="mt-3 text-gray-600 dark:text-gray-300">
@@ -126,23 +170,26 @@ const VoiceInputView = ({ isListening, isEnglish, transcriptText, startListening
     </div>
 
     <div className="mb-6">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        {isEnglish ? "Transcript:" : "النص:"}
-      </label>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{isEnglish ? "Transcript:" : "النص:"}</label>
       <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 min-h-[100px] max-h-[200px] overflow-y-auto bg-gray-50 dark:bg-gray-700">
         {transcriptText || (
-          <p className="text-gray-400 italic">
-            {isEnglish ? "Start speaking to see transcript here..." : "ابدأ التحدث لرؤية النص هنا..."}
-          </p>
+          <p className="text-gray-400 italic">{isEnglish ? "Start speaking to see transcript here..." : "ابدأ التحدث لرؤية النص هنا..."}</p>
         )}
       </div>
     </div>
 
     <div className="flex gap-3">
-      <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition dark:border-gray-600 dark:text-gray-300">
+      <button
+        onClick={onClose}
+        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition dark:border-gray-600 dark:text-gray-300"
+      >
         {isEnglish ? "Cancel" : "إلغاء"}
       </button>
-      <button onClick={handleInsertText} disabled={!transcriptText} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
+      <button
+        onClick={handleInsertText}
+        disabled={!transcriptText}
+        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+      >
         {isEnglish ? "Insert Text" : "إدراج النص"}
       </button>
     </div>

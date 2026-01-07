@@ -1,5 +1,6 @@
-import { Lock, Moon, Sun } from "lucide-react";
+import { Lock, Moon, Sun, FileText, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { FaStethoscope } from "react-icons/fa";
 import LanguageSelector from "../../components/LanguageSelector";
 
@@ -19,6 +20,30 @@ const Header = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                 <HeaderTitle />
                 <HeaderControls darkMode={darkMode} setDarkMode={setDarkMode} />
+            </div>
+ 
+            <div className="flex justify-end mt-4 gap-4">
+                <Link 
+                    to="/terms-of-service" 
+                    className="text-xs text-white/80 hover:text-white flex items-center gap-1 transition-colors"
+                >
+                    <FileText className="w-3 h-3" />
+                    Terms of Service
+                </Link>
+                <Link 
+                    to="/privacy-policy" 
+                    className="text-xs text-white/80 hover:text-white flex items-center gap-1 transition-colors"
+                >
+                    <Shield className="w-3 h-3" />
+                    Privacy Policy
+                </Link>
+                <a 
+                    href="mailto:support@medicalassistant.ai" 
+                    className="text-xs text-white/80 hover:text-white flex items-center gap-1 transition-colors"
+                >
+                    <Lock className="w-3 h-3" />
+                    Contact Support
+                </a>
             </div>
         </div>
     );

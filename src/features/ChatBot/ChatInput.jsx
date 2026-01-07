@@ -1,18 +1,21 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import { FaMicrophone, FaPaperPlane } from "react-icons/fa";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const ChatInput = ({
   inputText,
   setInputText,
-  isEnglish,
   autoResizeTextarea,
   handleSendMessage,
+  handleKeyDown,
   setIsVoiceModalOpen,
-  sendMessageMutation,
   textareaRef,
   sessionLimitReached,
+  isStreaming,
+  showAgeGenderForm,
 }) => {
+  const { isEnglish } = useLanguage();
   const [charCount, setCharCount] = useState(0);
   const MAX_CHARS = 1843;
 
@@ -22,27 +25,25 @@ const ChatInput = ({
 
   const isOverLimit = charCount > MAX_CHARS;
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey && !sessionLimitReached && !isOverLimit) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
   const handleInputChange = (e) => {
     const text = e.target.value;
     if (text.length <= MAX_CHARS) setInputText(text);
   };
 
-  const placeholder = sessionLimitReached
+  const isDisabled =
+    isStreaming ||
+    !inputText.trim() ||
+    sessionLimitReached ||
+    isOverLimit ||
+    showAgeGenderForm;
+
+  const placeholder = showAgeGenderForm
     ? isEnglish
-      ? "Session limit reached. Start a new chat to continue."
-      : "تم الوصول إلى الحد الأقصى للجلسة. ابدأ محادثة جديدة للمتابعة."
+      ? "Please provide your information above first"
+      : "يرجى تقديم معلوماتك أعلاه أولاً"
     : isEnglish
     ? "Please enter your symptoms..."
     : "الرجاء إدخال الأعراض الخاصة بك...";
-
-  const isDisabled = sendMessageMutation.isPending || !inputText.trim() || sessionLimitReached || isOverLimit;
 
   return (
     <div className="p-4 border-t border-gray-200 dark:border-gray-700">
@@ -52,23 +53,26 @@ const ChatInput = ({
         <TextAreaWithVoice
           inputText={inputText}
           setInputText={handleInputChange}
-          placeholder={placeholder}
           autoResizeTextarea={autoResizeTextarea}
           handleKeyDown={handleKeyDown}
           setIsVoiceModalOpen={setIsVoiceModalOpen}
           textareaRef={textareaRef}
-          disabled={sessionLimitReached || isOverLimit}
+          disabled={sessionLimitReached || isOverLimit || showAgeGenderForm}
           charCount={charCount}
           maxChars={MAX_CHARS}
           isOverLimit={isOverLimit}
+          placeholder={placeholder}
+          isEnglish={isEnglish}
         />
 
         <SendButton
           onClick={handleSendMessage}
           disabled={isDisabled}
-          isPending={sendMessageMutation.isPending}
+          isPending={isStreaming}
           sessionLimitReached={sessionLimitReached}
           isOverLimit={isOverLimit}
+          showAgeGenderForm={showAgeGenderForm}
+          isEnglish={isEnglish}
         />
       </div>
     </div>
@@ -88,7 +92,6 @@ const SessionLimitWarning = ({ isEnglish }) => (
 const TextAreaWithVoice = ({
   inputText,
   setInputText,
-  placeholder,
   autoResizeTextarea,
   handleKeyDown,
   setIsVoiceModalOpen,
@@ -97,6 +100,8 @@ const TextAreaWithVoice = ({
   charCount,
   maxChars,
   isOverLimit,
+  placeholder,
+  isEnglish,
 }) => (
   <div className="flex-1 relative">
     <textarea
@@ -109,15 +114,27 @@ const TextAreaWithVoice = ({
       onInput={() => autoResizeTextarea(textareaRef)}
       onKeyDown={handleKeyDown}
       disabled={disabled}
+      dir={isEnglish ? "ltr" : "rtl"}
     />
-    <VoiceInputButton onClick={() => setIsVoiceModalOpen(true)} disabled={disabled} />
+    <VoiceInputButton
+      onClick={() => setIsVoiceModalOpen(true)}
+      disabled={disabled}
+    />
 
-    <WordCounter wordCount={charCount} maxWords={maxChars} isOverLimit={isOverLimit} />
+    <WordCounter
+      wordCount={charCount}
+      maxWords={maxChars}
+      isOverLimit={isOverLimit}
+    />
   </div>
 );
 
 const WordCounter = ({ wordCount, maxWords, isOverLimit }) => (
-  <div className={`text-xs font-medium transition-colors duration-200 ${isOverLimit ? "text-red-600" : "text-gray-500"}`}>
+  <div
+    className={`text-xs font-medium transition-colors duration-200 ${
+      isOverLimit ? "text-red-600" : "text-gray-500"
+    }`}
+  >
     {wordCount} / {maxWords} {isOverLimit && "⚠️"}
   </div>
 );
@@ -133,11 +150,20 @@ const VoiceInputButton = ({ onClick, disabled }) => (
   </button>
 );
 
-const SendButton = ({ onClick, disabled, isPending, sessionLimitReached, isOverLimit }) => (
+const SendButton = ({
+  onClick,
+  disabled,
+  isPending,
+  sessionLimitReached,
+  isOverLimit,
+  showAgeGenderForm,
+  isEnglish,
+}) => (
   <button
     onClick={onClick}
     disabled={disabled}
     className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition relative"
+    title={isEnglish ? "Send message" : "إرسال الرسالة"}
   >
     {isPending ? (
       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -145,6 +171,8 @@ const SendButton = ({ onClick, disabled, isPending, sessionLimitReached, isOverL
       <span className="text-xs">🚫</span>
     ) : isOverLimit ? (
       <span className="text-xs">⚠️</span>
+    ) : showAgeGenderForm ? (
+      <span className="text-xs">{isEnglish ? "Waiting..." : "انتظار..."}</span>
     ) : (
       <FaPaperPlane className="h-4 w-4" />
     )}

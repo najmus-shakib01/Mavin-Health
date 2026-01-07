@@ -1,279 +1,468 @@
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiKey, baseUrl } from "../../constants/env.constants";
 import { cornerCases } from "../../constants/env.cornercase";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useSession } from "../../contexts/SessionContext";
+import { detectMedicalIntent } from "../../services/intentDetection";
+import {
+  cleanAIResponse,
+  formatResponseWithSources,
+} from "../../utils/sourceExtractor";
 import { detectEmergency, verifyLanguage } from "../ChatBot/MessageUtils";
-import useApiMedicalValidation from "../ChatBot/useApiMedicalValidation";
 import { useStreamHandler } from "../ChatBot/useStreamHandler";
+
+const CONVERSATION_STAGES = {
+  INITIAL: 1,
+  SYMPTOM_CONFIRMATION: 2,
+  AGE_GENDER_COLLECTION: 3,
+  DEEP_DIVE: 4,
+  DETAILED_NARRATIVE: 5,
+  FINAL_DIAGNOSIS: 6,
+};
 
 const useMedicalAssistant = () => {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
-  const [isProcessing] = useState(false);
-  const [conversationStage, setConversationStage] = useState(1);
-  const [lastPromptStage, setLastPromptStage] = useState(1);
+  const [conversationStage, setConversationStage] = useState(
+    CONVERSATION_STAGES.INITIAL
+  );
+  const [showAgeGenderForm, setShowAgeGenderForm] = useState(false);
   const [apiError, setApiError] = useState(null);
-  const [, setLastCondition] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [userDemographics, setUserDemographics] = useState({
+    age: "",
+    gender: "",
+    duration: "",
+  });
+  const [collectedSymptoms, setCollectedSymptoms] = useState([]);
+  const [isValidatingIntent, setIsValidatingIntent] = useState(false);
+  const [hasProvidedAgeGender, setHasProvidedAgeGender] = useState(false);
+  const [hasProvidedDuration, setHasProvidedDuration] = useState(false);
 
   const { isEnglish, isArabic } = useLanguage();
-  const { sessionLimitReached, incrementMessageCount, resetSession, userInfo, updateUserInfo, } = useSession();
+  const {
+    sessionLimitReached,
+    incrementMessageCount,
+    resetSession,
+    userInfo,
+    updateUserInfo,
+  } = useSession();
 
-  const streamHandler = useStreamHandler(setMessages, isArabic);
-  useApiMedicalValidation();
+  const streamHandler = useStreamHandler(setMessages, isArabic, {
+    onStreamStart: () => setIsStreaming(true),
+    onStreamEnd: () => setIsStreaming(false),
+  });
 
-  const extractUserInfoFromMessage = useCallback((message) => {
-    const ageMatch = message.match(
-      /(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/i
-    );
-    const genderMatch = message.match(
-      /(male|female|man|woman|رجل|أنثى|ذكر|فتاة)/i
-    );
-    const durationMatch = message.match(
-      /(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/i
-    );
-
-    return { age: ageMatch ? ageMatch[1] : "", gender: genderMatch ? genderMatch[1].toLowerCase() : "", duration: durationMatch ? durationMatch[0] : "", symptoms: extractSymptoms(message), };
-  }, []);
-
-  const extractSymptoms = (message) => {
-    if (message.length > 10) {
-      return message
-        .replace(
-          /(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/gi,
-          ""
-        )
-        .replace(/(male|female|man|woman|رجل|أنثى|ذكر|فتاة)/gi, "")
-        .replace(
-          /(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/gi,
-          ""
-        )
-        .replace(/\s+/g, " ")
-        .trim();
+  useEffect(() => {
+    if (userDemographics.age && userDemographics.gender) {
+      setHasProvidedAgeGender(true);
     }
-    return "";
-  };
-
-  const isCarePlanRequest = useCallback((message) => {
-    const carePlanKeywords = ["care plan", "guidelines", "routine", "rules", "complete care", "detailed guidelines", "خطة رعاية", "إرشادات", "روتين", "قواعد", "رعاية كاملة", "إرشادات مفصلة",];
-
-    return carePlanKeywords.some((keyword) =>
-      message.toLowerCase().includes(keyword.toLowerCase())
-    );
-  }, []);
-
-  const extractMainCondition = (message) => {
-    const conditions = {
-      diabetes: ["diabetes", "diabetic", "sugar", "glucose", "blood sugar", "type 1", "type 2", "السكري", "السكر", "الجلوكوز",],
-      fever: ["fever", "temperature", "hot", "feverish", "حمى", "حرارة", "سخونة",],
-      cough: ["cough", "coughing", "سعال", "كحة"],
-      headache: ["headache", "head pain", "migraine", "صداع", "ألم في الرأس"],
-      "sore throat": ["sore throat", "throat pain", "التهاب الحلق", "ألم في الحلق",],
-      "stomach pain": ["stomach pain", "abdominal pain", "belly ache", "stomachache", "ألم في المعدة", "ألم في البطن",],
-      "chest pain": ["chest pain", "chest tightness", "ألم في الصدر", "ضيق في الصدر",],
-      "back pain": ["back pain", "backache", "ألم في الظهر"],
-      "high blood pressure": ["high blood pressure", "hypertension", "ضغط الدم المرتفع", "ارتفاع ضغط الدم",],
-      asthma: ["asthma", "wheezing", "breathing difficulty", "ربو", "صفير", "صعوبة في التنفس",],
-    };
-
-    const lowerMessage = message.toLowerCase();
-
-    for (const [condition, keywords] of Object.entries(conditions)) {
-      for (const keyword of keywords) {
-        if (lowerMessage.includes(keyword)) {
-          return condition;
-        }
-      }
+    if (userDemographics.duration) {
+      setHasProvidedDuration(true);
     }
+  }, [userDemographics]);
 
-    return "";
-  };
-
-  const generateSystemPrompt = useCallback(
-    (userMessage) => {
-      const extractedInfo = extractUserInfoFromMessage(userMessage);
-
-      const safeUpdate = {};
-      if (extractedInfo.age) safeUpdate.age = extractedInfo.age;
-      if (extractedInfo.gender) safeUpdate.gender = extractedInfo.gender;
-      if (extractedInfo.duration) safeUpdate.duration = extractedInfo.duration;
-      if (extractedInfo.symptoms) safeUpdate.symptoms = extractedInfo.symptoms;
-
-      const mergedUserInfo = {
-        ...userInfo,
-        ...safeUpdate,
-      };
-
-      if (Object.keys(safeUpdate).length > 0) {
-        updateUserInfo(safeUpdate);
-      }
-
-      const condition = extractMainCondition(userMessage);
-      if (condition) setLastCondition(condition);
-
-      const hasAge = !!mergedUserInfo.age;
-      const hasGender = !!mergedUserInfo.gender;
-      const hasDuration = !!mergedUserInfo.duration;
-      const hasAllRequired = hasAge && hasGender && hasDuration;
-
-      let stageForPrompt;
-
-      if (!hasAllRequired) {
-        stageForPrompt = 1;
-      } else if (conversationStage <= 1) {
-        stageForPrompt = 2;
-      } else if (conversationStage === 2) {
-        stageForPrompt = 3;
-      } else {
-        stageForPrompt = conversationStage;
-      }
-
-      setLastPromptStage(stageForPrompt);
-
-      const context = `Age: ${mergedUserInfo?.age || "not provided"}, Gender: ${mergedUserInfo?.gender || "not provided"
-        }, Duration: ${mergedUserInfo?.duration || "not provided"}, Symptoms: ${mergedUserInfo?.symptoms || "not provided"
-        }, Condition: ${condition || "not specified"}`;
-
-      if (stageForPrompt === 1) {
-        const missingEn = [];
-        if (!hasAge) missingEn.push("age");
-        if (!hasGender) missingEn.push("gender");
-        if (!hasDuration)
-          missingEn.push("how long you have had this problem (in days)");
-
-        const missingAr = [];
-        if (!hasAge) missingAr.push("العمر");
-        if (!hasGender) missingAr.push("الجنس");
-        if (!hasDuration)
-          missingAr.push("مدة استمرار المشكلة (بعدد الأيام)");
-
-        const joinWithAnd = (items, andWord, separator) => {
-          if (items.length === 1) return items[0];
-          if (items.length === 2) return `${items[0]} ${andWord} ${items[1]}`;
-          return `${items.slice(0, -1).join(separator)} ${andWord} ${items[items.length - 1]
-            }`;
-        };
-
-        if (isEnglish) {
-          const missingText = joinWithAnd(missingEn, "and", ", ");
-          return `The user has shared their initial symptoms related to ${condition || "a medical condition"}. Your ONLY goal in this reply is to collect their **${missingText}**.
-
-          Rules:
-          - Do NOT ask for detailed symptoms yet.
-          - If they provide some of these but not all, politely ask ONLY for the missing ones.
-          - Do not give any medical explanation or possible causes yet.
-
-          Reply briefly and kindly. For example:
-          "Thank you for sharing that you have ${condition || "this health concern"}. <br><br> To help you better, please tell me your ${missingText}."`;
-        }
-
-        const missingTextAr = joinWithAnd(missingAr, "و", "، ");
-        return `المستخدم شارك أعراضه الأولية المتعلقة بـ ${condition || "حالة طبية"}. مهمتك الوحيدة في هذا الرد هي جمع **${missingTextAr}**.
-        القواعد:
-        - لا تطلب وصف الأعراض بالتفصيل بعد.
-        - إذا قدّم المستخدم بعض هذه المعلومات فقط، فاطلب بلطف المعلومات الناقصة فقط.
-        - لا تقدّم أي تفسير طبي أو تشخيص أو أسباب محتملة في هذه المرحلة.
-
-        اجب بشكل مختصر وواضح، مثلاً:
-        "شكرًا لمشاركتك هذه المشكلة الصحية معي. <br><br> لمساعدتك بشكل أفضل، من فضلك اذكر ${missingTextAr}."`;
-      }
-
-      if (stageForPrompt === 2) {
-        return isEnglish
-          ? `The user has already provided their basic information (age, gender, and duration) for ${condition || "their medical condition"
-          }. Now your ONLY task is to ask them to describe their **symptoms in detail**.
-
-        Keep the reply focused on collecting symptom details (what they feel, where, since when, what makes it better or worse) without giving medical explanations yet.` : `قدّم المستخدم بالفعل معلوماته الأساسية (العمر والجنس ومدة المشكلة) لـ ${condition || "حالته الطبية"}. مهمتك الآن هي طلب **وصف الأعراض بالتفصيل فقط** دون تقديم تشخيص أو تفسير طبي في هذه المرحلة.`;
-      }
-
-      if (stageForPrompt === 3) {
-        return isEnglish
-          ? `${cornerCases}\n\nPatient Context: ${context}. Respond in English with SPECIALIST_RECOMMENDATION. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
-          These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions. The CTA should be creative and different each time, encouraging users to ask for more specific information about their condition: ${condition || "their mentioned condition"}.` : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء. يجب أن يكون CTA إبداعيًا ومختلفًا في كل مرة، ويشجع المستخدمين على طلب معلومات أكثر تحديدًا حول حالتهم: ${condition || "حالتهم المذكورة"}.`;
-      }
-
-      if (stageForPrompt === 4 || stageForPrompt === 5) {
-        return isEnglish
-          ? `${cornerCases}\n\nPatient Context: ${context}. The user has requested a complete care plan and detailed guidelines for ${condition || "their condition"}. Provide a comprehensive care plan with specific steps, home remedies, when to seek medical help, and preventive measures tailored to their specific condition. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
-          These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions.` : `${cornerCases}\n\nسياق المريض: ${context}. طلب المستخدم خطة رعاية كاملة وإرشادات مفصلة لـ ${condition || "حالتهم"}. قدم خطة رعاية شاملة مع خطوات محددة وعلاجات منزلية ومتى تطلب المساعدة الطبية والتدابير الوقائية المصممة خصيصاً لحالتهم. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء.`;
-      }
-
-      return generateMedicalPrompt(mergedUserInfo, isEnglish, condition);
-    },
-    [userInfo, isEnglish, extractUserInfoFromMessage, updateUserInfo, conversationStage,]
+  const createUserMessage = useCallback(
+    (text) => ({
+      id: Date.now() + Math.random(),
+      text,
+      sender: "user",
+      timestamp: new Date().toLocaleTimeString(),
+    }),
+    []
   );
 
-  const generateMedicalPrompt = (userInfo, isEnglish, condition) => {
-    const context = `Age: ${userInfo?.age || "not provided"}, Gender: ${userInfo?.gender || "not provided"
-      }, Duration: ${userInfo?.duration || "not provided"}, Symptoms: ${userInfo?.symptoms || "not provided"}, Condition: ${condition || "not specified"}`;
+  const createBotMessage = useCallback(
+    (text, isStreaming = false) => ({
+      id: Date.now() + Math.random() + 1,
+      text,
+      sender: "bot",
+      isStreaming,
+      timestamp: new Date().toLocaleTimeString(),
+    }),
+    []
+  );
 
-    return isEnglish
-      ? `${cornerCases}\n\nPatient Context: ${context}. Respond in English with SPECIALIST_RECOMMENDATION. Include a final section with two buttons (non-clickable): "You can view our specialist list. Click the button to see the list. 🩺 Specialist List" and "You can book an appointment with a specialist. Click to book. 📅 Appointment Now". 
-      These buttons should be displayed after the sources section. Also include a dynamic CTA at the end that encourages further interaction, similar to how ChatGPT provides varied call-to-actions. The CTA should be creative and different each time, encouraging users to ask for more specific information about their condition: ${condition || "their mentioned condition"}.`
-      : `${cornerCases}\n\nسياق المريض: ${context}. الرد بالعربية مع SPECIALIST_RECOMMENDATION. قم بتضمين قسم نهائي يحتوي على زرين (غير قابلين للنقر): "يمكنك عرض قائمة الأخصائيين لدينا. انقر على الزر لرؤية القائمة. 🩺 قائمة الأخصائيين" و "يمكنك حجز موعد مع أخصائي. انقر للحجز. 📅 حجز موعد الآن". يجب عرض هذه الأزرار بعد قسم المصادر. قم أيضًا بتضمين CTA ديناميكي في النهاية يشجع على التفاعل الإضافي، مشابهًا لكيفية تقديم ChatGPT لدعوات متنوعة لاتخاذ إجراء. يجب أن يكون CTA إبداعيًا ومختلفًا في كل مرة، ويشجع المستخدمين على طلب معلومات أكثر تحديدًا حول حالتهم: ${condition || "حالتهم المذكورة"}.`;
-  };
+  const addUserMessage = useCallback(
+    (userText) => {
+      const userMsg = createUserMessage(userText);
+      setMessages((prev) => [...prev, userMsg]);
+      incrementMessageCount();
+    },
+    [createUserMessage, incrementMessageCount]
+  );
 
-  const sendMessageMutation = useMutation({
-    mutationFn: async (inputText) => {
-      if (sessionLimitReached) throw new Error("Session limit reached");
+  const addBotMessage = useCallback(
+    (botText, isStreaming = false) => {
+      const botMsg = createBotMessage(botText, isStreaming);
+      setMessages((prev) => [...prev, botMsg]);
+    },
+    [createBotMessage]
+  );
 
-      if (conversationStage === 3 && isCarePlanRequest(inputText)) {
-        setConversationStage(4);
-      } else if (conversationStage >= 4) {
-        setConversationStage(5);
-      }
+  const extractUserInfoFromMessage = useCallback(
+    (message) => {
+      const ageMatch = message.match(
+        /(\d+)\s*(?:years? old|year|yo|y\.o|age|aged|عمري|سنة|عمر)/i
+      );
 
-      const systemPrompt = generateSystemPrompt(inputText);
+      const genderMatch = message.match(
+        /(male|female|man|woman|boy|girl|رجل|أنثى|ذكر|فتاة)/i
+      );
 
-      setIsStreaming(true);
+      const durationMatch = message.match(
+        /(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y|أيام|يوم|ساعات|ساعة|أسابيع|أسبوع|شهور|شهر|سنوات|سنة)/i
+      );
 
-      let response;
-      let retryCount = 0;
-      const maxRetries = 2;
+      const info = {
+        age: ageMatch ? ageMatch[1] : "",
+        gender: genderMatch ? genderMatch[1].toLowerCase() : "",
+        duration: durationMatch ? durationMatch[0] : "",
+      };
 
-      while (retryCount <= maxRetries) {
-        try {
-          response = await fetch(`${baseUrl}/completions`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "qwen/qwen2.5-vl-72b-instruct",
-              // model: "mistralai/mistral-small-24b-instruct-2501",
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: inputText },
-              ],
-              temperature: 0,
-              stream: true,
-              max_tokens: 1500,
-            }),
-          });
+      if (info.age || info.gender || info.duration) {
+        const updates = {};
 
-          if (!response.ok) {
-            if (response.status === 429 && retryCount < maxRetries) {
-              const retryAfter = response.headers.get("retry-after") || 2;
-              await new Promise((resolve) =>
-                setTimeout(resolve, parseInt(retryAfter) * 1000)
-              );
-              retryCount++;
-              continue;
-            }
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          break;
-        } catch (error) {
-          if (retryCount >= maxRetries) throw error;
-          retryCount++;
-          await new Promise((resolve) =>
-            setTimeout(resolve, 1000 * retryCount)
+        if (info.age) {
+          updates.age = info.age;
+          setHasProvidedAgeGender((prev) =>
+            !prev && info.gender ? true : prev
           );
         }
+
+        if (info.gender) {
+          const gender = info.gender.toLowerCase();
+          let normalizedGender = gender;
+
+          if (
+            gender.includes("female") ||
+            gender.includes("woman") ||
+            gender.includes("girl") ||
+            gender.includes("أنثى") ||
+            gender.includes("فتاة")
+          ) {
+            normalizedGender = "female";
+          } else if (
+            gender.includes("male") ||
+            gender.includes("man") ||
+            gender.includes("boy") ||
+            gender.includes("رجل") ||
+            gender.includes("ذكر")
+          ) {
+            normalizedGender = "male";
+          }
+
+          updates.gender = normalizedGender;
+          setHasProvidedAgeGender((prev) => (!prev && info.age ? true : prev));
+        }
+
+        if (info.duration) {
+          updates.duration = info.duration;
+          setHasProvidedDuration(true);
+        }
+
+        if (Object.keys(updates).length > 0) {
+          setUserDemographics((prev) => ({ ...prev, ...updates }));
+          updateUserInfo(updates);
+        }
+      }
+
+      return info;
+    },
+    [updateUserInfo]
+  );
+
+  const generateDeepDiveQuestions = useCallback(() => {
+    setIsStreaming(true);
+
+    const { age, gender, duration } = userDemographics;
+
+    let basePrompt;
+    if (age && gender) {
+      if (duration) {
+        basePrompt = `The patient is a ${age} year old ${gender}. They have been experiencing symptoms for ${duration}. They have described their symptoms. Now ask specific follow-up questions about their medical condition to get more details. Make it conversational and caring. Return only the questions.`;
+      } else {
+        basePrompt = `The patient is a ${age} year old ${gender}. They have described their symptoms. Now ask specific follow-up questions about their medical condition to get more details. Make it conversational and caring. Return only the questions.`;
+      }
+    } else {
+      basePrompt = `The patient has provided their information. Now ask specific follow-up questions about their medical condition to get more details. Make it conversational and caring. Return only the questions.`;
+    }
+
+    const prompt = isEnglish
+      ? basePrompt
+      : age && gender
+      ? duration
+        ? `المريض عمره ${age} سنة وجنسه ${
+            gender === "male" ? "ذكر" : "أنثى"
+          }. يعاني من الأعراض منذ ${duration}. لقد وصف أعراضه. الآن اسأل أسئلة متابعة محددة عن حالته الطبية للحصول على مزيد من التفاصيل. اجعلها محادثة ومهتمة. أعد الأسئلة فقط.`
+        : `المريض عمره ${age} سنة وجنسه ${
+            gender === "male" ? "ذكر" : "أنثى"
+          }. لقد وصف أعراضه. الآن اسأل أسئلة متابعة محددة عن حالته الطبية للحصول على مزيد من التفاصيل. اجعلها محادثة ومهتمة. أعد الأسئلة فقط.`
+      : `قدم المريض معلوماته. الآن اسأل أسئلة متابعة محددة عن حالته الطبية للحصول على مزيد من التفاصيل. اجعلها محادثة ومهتمة. أعد الأسئلة فقط.`;
+
+    fetch(`${baseUrl}/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "qwen/qwen2.5-vl-72b-instruct",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a thorough medical assistant. Ask specific, detailed questions about medical conditions. Return only the questions.",
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 200,
+      }),
+    })
+      .then((response) => {
+        if (!response.ok)
+          throw new Error(`HTTP error! status: ${response.status}`);
+        return response.json();
+      })
+      .then((data) => {
+        let botResponse = data.choices[0].message.content;
+        botResponse = cleanAIResponse(botResponse);
+        const botMsg = createBotMessage(botResponse);
+        setMessages((prev) => [...prev, botMsg]);
+        setConversationStage(CONVERSATION_STAGES.DEEP_DIVE);
+      })
+      .catch((error) => {
+        console.error("Deep dive questions error:", error);
+        const fallbackResponse = isEnglish
+          ? "Thank you for providing your information. Let's go through your medical concerns in more detail so I can better understand what's going on.\n\nPlease tell me:\n• What specific symptoms are you experiencing?\n• How long have you had these symptoms?\n• What makes the symptoms better or worse?"
+          : "شكرًا لتقديم معلوماتك. دعنا نستعرض مخاوفك الطبية بمزيد من التفصيل حتى أتمكن من فهم ما يحدث بشكل أفضل.\n\nيرجى إخباري:\n• ما هي الأعراض المحددة التي تعاني منها؟\n• منذ متى تعاني من هذه الأعراض؟\n• ما الذي يجعل الأعراض أفضل أو أسوأ؟";
+        const botMsg = createBotMessage(fallbackResponse);
+        setMessages((prev) => [...prev, botMsg]);
+        setConversationStage(CONVERSATION_STAGES.DEEP_DIVE);
+      })
+      .finally(() => {
+        setIsStreaming(false);
+      });
+  }, [isEnglish, createBotMessage, userDemographics]);
+
+  const generateInitialResponseMutation = useMutation({
+    mutationFn: async (userText) => {
+      const prompt = isEnglish
+        ? `The user says: "${userText}". They are mentioning a medical concern. As a medical assistant, ask for more details about their symptoms and condition. Keep it conversational and helpful. Return only your response.`
+        : `يقول المستخدم: "${userText}". يذكرون قلقًا طبيًا. كمساعد طبي، اطلب المزيد من التفاصيل عن أعراضهم وحالتهم. حافظ على المحادثة مساعدة ومفيدة. أعد ردك فقط.`;
+
+      const response = await fetch(`${baseUrl}/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "qwen/qwen2.5-vl-72b-instruct",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a helpful medical assistant. Ask follow-up questions about symptoms and medical concerns. Return only your response.",
+            },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.3,
+          max_tokens: 150,
+        }),
+      });
+
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      return data.choices[0].message.content;
+    },
+    onMutate: () => {
+      setIsStreaming(true);
+    },
+    onSuccess: (botResponse, userText) => {
+      const cleanResponse = cleanAIResponse(botResponse);
+      addBotMessage(cleanResponse);
+      setConversationStage(CONVERSATION_STAGES.SYMPTOM_CONFIRMATION);
+      setCollectedSymptoms((prev) => [...prev, userText]);
+    },
+    onError: (error) => {
+      console.error("Initial response error:", error);
+      const fallbackResponse = isEnglish
+        ? "Thank you for sharing that. To help you best, could you tell me more about your symptoms or medical concern?"
+        : "شكرًا لمشاركتك ذلك. لمساعدتك بشكل أفضل، هل يمكنك إخباري بالمزيد عن أعراضك أو قلقك الطبي؟";
+      addBotMessage(fallbackResponse);
+      setConversationStage(CONVERSATION_STAGES.SYMPTOM_CONFIRMATION);
+    },
+    onSettled: () => {
+      setIsStreaming(false);
+    },
+  });
+
+  const generateSymptomConfirmationMutation = useMutation({
+    mutationFn: async (userText) => {
+      const extractedInfo = extractUserInfoFromMessage(userText);
+      const hasAgeGender = extractedInfo.age && extractedInfo.gender;
+      const hasDuration = extractedInfo.duration;
+
+      let prompt;
+      if (hasAgeGender && hasDuration) {
+        prompt = isEnglish
+          ? `The user has provided: "${userText}". They have already shared their age (${extractedInfo.age}), gender (${extractedInfo.gender}), and duration (${extractedInfo.duration}). Now ask detailed follow-up questions about their specific symptoms.`
+          : `قدم المستخدم: "${userText}". لقد شارك بالفعل عمره (${extractedInfo.age}) وجنسه (${extractedInfo.gender}) ومدة الأعراض (${extractedInfo.duration}). الآن اسأل أسئلة متابعة مفصلة عن أعراضه المحددة.`;
+      } else if (hasAgeGender) {
+        prompt = isEnglish
+          ? `The user has provided: "${userText}". They have already shared their age (${extractedInfo.age}) and gender (${extractedInfo.gender}). Now ask about how long they have been experiencing these symptoms.`
+          : `قدم المستخدم: "${userText}". لقد شارك بالفعل عمره (${extractedInfo.age}) وجنسه (${extractedInfo.gender}). الآن اسأل عن المدة التي يعاني منها من هذه الأعراض.`;
+      } else {
+        prompt = isEnglish
+          ? `The user has provided these details: "${userText}". As a medical assistant, politely ask for their age and biological sex to provide tailored advice. Explain why this information is important and assure them of privacy. Keep it warm and professional. Return only your response.`
+          : `قدم المستخدم هذه التفاصيل: "${userText}". كمساعد طبي، اطلب بلطف عمرهم وجنسهم البيولوجي لتقديم نصائح مخصصة. اشرح سبب أهمية هذه المعلومات وطمئنهم بشأن الخصوصية. حافظ على الدفء والاحترافية. أعد ردك فقط.`;
+      }
+
+      const response = await fetch(`${baseUrl}/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "qwen/qwen2.5-vl-72b-instruct",
+          messages: [
+            {
+              role: "system",
+              content:
+                hasAgeGender && hasDuration
+                  ? "You are a caring medical assistant. Ask detailed follow-up questions about symptoms. Return only your response."
+                  : hasAgeGender
+                  ? "You are a caring medical assistant. Ask about the duration of symptoms. Return only your response."
+                  : "You are a caring medical assistant. Ask for demographic information sensitively. Return only your response.",
+            },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.3,
+          max_tokens: 200,
+        }),
+      });
+
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      return {
+        response: data.choices[0].message.content,
+        hasAgeGender,
+        hasDuration,
+      };
+    },
+    onMutate: () => {
+      setIsStreaming(true);
+    },
+    onSuccess: (data, userText) => {
+      const { response: botResponse, hasAgeGender, hasDuration } = data;
+      const cleanResponse = cleanAIResponse(botResponse);
+      addBotMessage(cleanResponse);
+
+      if (hasAgeGender && hasDuration) {
+        setConversationStage(CONVERSATION_STAGES.DEEP_DIVE);
+        setTimeout(() => generateDeepDiveQuestions(), 100);
+      } else if (hasAgeGender) {
+        setConversationStage(CONVERSATION_STAGES.SYMPTOM_CONFIRMATION);
+      } else {
+        setConversationStage(CONVERSATION_STAGES.AGE_GENDER_COLLECTION);
+        setShowAgeGenderForm(true);
+      }
+
+      setCollectedSymptoms((prev) => [...prev, userText]);
+    },
+    onError: (error) => {
+      console.error("Symptom confirmation error:", error);
+      const fallbackResponse = isEnglish
+        ? "Thank you for letting me know about your symptoms. To provide advice that's truly tailored to you, could you please share your age and your biological sex? This information helps me consider the most relevant causes and recommendations for your situation. Please rest assured that anything you share will remain private and confidential. Your comfort and safety are my top priorities."
+        : "شكرًا لإخباري عن أعراضك. لتقديم نصيحة مخصصة لك حقًا، هل يمكنك مشاركة عمرك وجنسك البيولوجي؟ تساعدني هذه المعلومات في النظر في الأسباب والتوصيات الأكثر صلة بوضعك. يرجى الاطمئنان إلى أن أي شيء تشاركه سيظل خاصًا وسريًا. راحتك وسلامتك هي أولوياتي القصوى.";
+      addBotMessage(fallbackResponse);
+      setConversationStage(CONVERSATION_STAGES.AGE_GENDER_COLLECTION);
+      setShowAgeGenderForm(true);
+    },
+    onSettled: () => {
+      setIsStreaming(false);
+    },
+  });
+
+  const handleAgeGenderSubmit = useCallback(
+    (age, gender) => {
+      const genderText =
+        gender === "male" ? "man" : gender === "female" ? "woman" : "";
+      const userMessage = isEnglish
+        ? `I am a ${age} year old ${genderText}.`
+        : `أنا ${
+            gender === "male" ? "رجل" : "امرأة"
+          } أبلغ من العمر ${age} سنة.`;
+
+      addUserMessage(userMessage);
+
+      updateUserInfo({ age, gender });
+      setUserDemographics((prev) => ({ ...prev, age, gender }));
+      setHasProvidedAgeGender(true);
+      setShowAgeGenderForm(false);
+
+      const hasDuration =
+        userDemographics.duration ||
+        collectedSymptoms.some((msg) =>
+          msg.match(
+            /(\d+)\s*(?:days?|day|d|hours?|hour|hr|h|weeks?|week|wk|w|months?|month|m|years?|year|yr|y)/i
+          )
+        );
+
+      if (hasDuration) {
+        setConversationStage(CONVERSATION_STAGES.DEEP_DIVE);
+        setTimeout(() => generateDeepDiveQuestions(), 100);
+      } else {
+        setConversationStage(CONVERSATION_STAGES.SYMPTOM_CONFIRMATION);
+        const durationQuestion = isEnglish
+          ? "Thank you. How long have you been experiencing these symptoms?"
+          : "شكرًا لك. منذ متى وأنت تعاني من هذه الأعراض؟";
+        addBotMessage(durationQuestion);
+      }
+    },
+    [isEnglish, addUserMessage, updateUserInfo, userDemographics.duration, collectedSymptoms, generateDeepDiveQuestions, addBotMessage]
+  );
+
+  const generateFinalDiagnosisMutation = useMutation({
+    mutationFn: async (userText) => {
+      const { age, gender, duration } = userDemographics;
+      const symptoms = collectedSymptoms.join(", ");
+      if (!age || !gender) {
+        throw new Error("Age and gender information missing");
+      }
+
+      const systemPrompt = `${cornerCases}\n\nPatient Context: Age: ${age}, Gender: ${gender}${
+        duration ? `, Duration: ${duration}` : ""
+      }, Symptoms/Concerns: ${symptoms}.\n\nIMPORTANT: At the end of your response, include a CTA (Call to Action) using this format: "CTA: [Your dynamic CTA message here]" based on the user's specific medical condition and symptoms. Make the CTA practical and actionable.`;
+
+      const response = await fetch(`${baseUrl}/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "qwen/qwen2.5-vl-72b-instruct",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userText },
+          ],
+          temperature: 0.3,
+          stream: true,
+          max_tokens: 2000,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("API Error:", errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       return {
@@ -281,142 +470,320 @@ const useMedicalAssistant = () => {
         language: isArabic ? "arabic" : "english",
       };
     },
+    onMutate: () => {
+      setIsStreaming(true);
+    },
     onSuccess: (data) => {
       streamHandler.processStream(data);
-      setApiError(null);
-
-      setConversationStage((prev) => {
-        if (prev >= 4) return prev;
-
-        if (lastPromptStage === 1) return 1;
-        if (lastPromptStage === 2) return 2;
-        if (lastPromptStage >= 3) return 3;
-        return prev;
-      });
+      setConversationStage(CONVERSATION_STAGES.FINAL_DIAGNOSIS);
     },
-
     onError: (error) => {
-      handleSendMessageError(error, isEnglish, setMessages);
-      setApiError(error.message);
+      console.error("Final diagnosis error:", error);
+
+      if (error.message === "Age and gender information missing") {
+        const missingInfoResponse = isEnglish
+          ? "To provide you with the best medical advice, I need to know your age and biological sex. Could you please share this information?"
+          : "لتقديم أفضل نصيحة طبية لك، أحتاج إلى معرفة عمرك وجنسك البيولوجي. هل يمكنك مشاركة هذه المعلومات؟";
+
+        addBotMessage(missingInfoResponse);
+        setConversationStage(CONVERSATION_STAGES.AGE_GENDER_COLLECTION);
+        setShowAgeGenderForm(true);
+      } else {
+        const { age, gender, duration } = userDemographics;
+        const symptoms = collectedSymptoms.join(", ");
+
+        const fallbackResponse = isEnglish
+          ? `Based on your medical concerns (${symptoms}) and your information (${age} year old ${gender}${
+              duration ? `, experiencing symptoms for ${duration}` : ""
+            }), this appears to be a medical condition that should be evaluated by a healthcare professional.\n\n**Immediate Recommendations:**\n1. Monitor your symptoms closely\n2. Keep track of any changes in severity\n3. Note any new symptoms that develop\n4. Stay hydrated and rest if needed\n\n**When to Seek Emergency Care:**\n• Difficulty breathing\n• Chest pain or pressure\n• Severe pain\n• Confusion or dizziness\n\n**Recommended Specialist:** General Practitioner\n\n**CTA:** Based on your symptoms, I recommend scheduling a consultation with a healthcare provider for proper evaluation and diagnosis.\n\n**Medical References:**\n• Mayo Clinic\n• CDC\n• World Health Organization\n\n⚠️ **Disclaimer:** This AI system is not a licensed medical professional. This information is for educational purposes only. Please consult with a qualified healthcare provider for proper diagnosis and treatment.`
+          : `بناءً على مخاوفك الطبية (${symptoms}) ومعلوماتك (${age} سنة، ${gender}${
+              duration ? `، تعاني من الأعراض منذ ${duration}` : ""
+            })، يبدو أن هذه حالة طبية يجب تقييمها من قبل مقدم رعاية صحية.\n\n**التوصيات الفورية:**\n1. راقب أعراضك عن كثب\n2. تتبع أي تغييرات في الشدة\n3. لاحظ أي أعراض جديدة تتطور\n4. حافظ على الترطيب واسترح إذا لزم الأمر\n\n**متى تطلب الرعاية الطارئة:**\n• صعوبة في التنفس\n• ألم أو ضغط في الصدر\n• ألم شديد\n• ارتباك أو دوخة\n\n**الأخصائي الموصى به:** طبيب عام\n\n**CTA:** بناءً على أعراضك، أوصي بحجز استشارة مع مقدم رعاية صحية للتقييم والتشخيص المناسب.\n\n**المراجع الطبية:**\n• عيادة مايو\n• مركز السيطرة على الأمراض\n• منظمة الصحة العالمية\n\n⚠️ **إخلاء المسؤولية:** هذا النظام الذكي ليس أخصائيًا طبيًا مرخصًا. هذه المعلومات لأغراض تعليمية فقط. يرجى استشارة مقدم رعاية صحية مؤهل للتشخيص والعلاج المناسبين.`;
+
+        const formattedResponse = formatResponseWithSources(
+          fallbackResponse,
+          isArabic
+        );
+        addBotMessage(formattedResponse);
+        setConversationStage(CONVERSATION_STAGES.FINAL_DIAGNOSIS);
+      }
+    },
+    onSettled: () => {
       setIsStreaming(false);
     },
-    retry: (failureCount, error) => {
-      return error.message.includes("429") && failureCount < 2;
-    },
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
-  const handleSendMessageError = (error, isEnglish) => {
-    if (error.message === "NON_MEDICAL_QUESTION") {
-      const message = isEnglish
-        ? "Sorry, I don't answer non-medical questions. You can only share medical-related questions with me."
-        : "عذرًا، لا أجيب على التكاليف غير الطبية. يمكنك فقط مشاركة التكاليف الطبية معي.";
-
-      setMessages((prev) => [...prev, createBotMessage(message)]);
-    } else if (error.message.includes("429")) {
-      const message = isEnglish
-        ? "I'm receiving too many requests right now. Please wait a moment before trying again."
-        : "أستقبل الكثير من الطلبات الآن. يرجى الانتظار لحظة قبل المحاولة مرة أخرى.";
-
-      setMessages((prev) => [...prev, createBotMessage(message)]);
-    } else {
-      const errorMessage = isArabic
-        ? `<span style="color:red">خطأ : ${error.message}</span>`
-        : `<span style="color:red">Error : ${error.message}</span>`;
-
-      setMessages((prev) => [...prev, createBotMessage(errorMessage)]);
+  const validateMedicalQuestion = useCallback(async (userText) => {
+    setIsValidatingIntent(true);
+    try {
+      const isMedical = await detectMedicalIntent(userText);
+      return isMedical;
+    } catch (error) {
+      console.error("Medical validation error:", error);
+      return true;
+    } finally {
+      setIsValidatingIntent(false);
     }
-  };
-
-  const addMessagePair = (userText, botText) => {
-    const newMessages = [
-      createUserMessage(userText),
-      createBotMessage(botText),
-    ];
-    setMessages((prev) => [...prev, ...newMessages]);
-  };
-
-  const handleEmergencySituation = (inputText, isEnglish) => {
-    const emergencyResponse = isEnglish
-      ? `<span style="color:red; font-weight:bold;">⚠️ EMERGENCY ALERT! You may be experiencing a serious medical condition. ➡️ Please go to the nearest hospital immediately or call emergency services.</span>`
-      : `<span style="color:red; font-weight:bold;">⚠️ تنبيه طوارئ! قد تكون تعاني من حالة طبية خطيرة. ➡️ يرجى التوجه إلى أقرب مستشفى فورًا أو الاتصال بخدمات الطوارئ.</span>`;
-
-    addMessagePair(inputText, emergencyResponse);
-  };
-
-  const processUserMessage = async (inputText) => {
-    const newUserMessage = createUserMessage(inputText);
-    setMessages((prev) => [...prev, newUserMessage]);
-
-    incrementMessageCount();
-
-    const loadingMessage = createBotMessage(
-      isEnglish ? "🔄 Processing your request..." : "🔄 جاري معالجة طلبك...",
-      true
-    );
-    setMessages((prev) => [...prev, loadingMessage]);
-
-    sendMessageMutation.mutate(inputText, {
-      onSuccess: () =>
-        setMessages((prev) =>
-          prev.filter((msg) => msg.id !== loadingMessage.id)
-        ),
-      onError: () =>
-        setMessages((prev) =>
-          prev.filter((msg) => msg.id !== loadingMessage.id)
-        ),
-    });
-
-    setInputText("");
-  };
-
-  const createUserMessage = (text) => ({
-    id: Date.now(),
-    text,
-    sender: "user",
-    timestamp: new Date().toLocaleTimeString(),
-  });
-
-  const createBotMessage = (text, isStreaming = false) => ({
-    id: Date.now() + 1,
-    text,
-    sender: "bot",
-    isStreaming,
-    timestamp: new Date().toLocaleTimeString(),
-  });
+  }, []);
 
   const handleSendMessage = useCallback(async () => {
-    if (!inputText.trim() || sessionLimitReached || isProcessing) return;
+    if (
+      !inputText.trim() ||
+      sessionLimitReached ||
+      isStreaming ||
+      isValidatingIntent
+    )
+      return;
 
     const languageVerification = verifyLanguage(inputText, isEnglish, isArabic);
     if (!languageVerification.valid) {
-      addMessagePair(inputText, languageVerification.message);
+      addUserMessage(inputText);
+      addBotMessage(languageVerification.message);
       setInputText("");
       return;
     }
 
     if (detectEmergency(inputText)) {
-      handleEmergencySituation(inputText, isEnglish);
+      addUserMessage(inputText);
+      const emergencyResponse = isEnglish
+        ? "⚠️ EMERGENCY ALERT! Based on your symptoms, please seek immediate medical attention or call emergency services."
+        : "⚠️ تنبيه طوارئ! بناءً على أعراضك، يرجى طلب العناية الطبية الفورية أو الاتصال بخدمات الطوارئ.";
+
+      addBotMessage(emergencyResponse);
       setInputText("");
       return;
     }
 
-    await processUserMessage(inputText);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputText, isEnglish, isArabic, sessionLimitReached, isProcessing, conversationStage,]);
+    addUserMessage(inputText);
+    const extractedInfo = extractUserInfoFromMessage(inputText);
+    setCollectedSymptoms((prev) => [...prev, inputText]);
+    setIsStreaming(true);
+    const validateMedical = async () => {
+      try {
+        const isMedical = await validateMedicalQuestion(inputText);
+
+        if (!isMedical) {
+          const nonMedicalResponse = isEnglish
+            ? "I specialize in medical symptoms and health-related questions. Please ask me about medical concerns, symptoms, or health issues."
+            : "أتخصص في الأعراض الطبية والأسئلة المتعلقة بالصحة. يرجى سؤالي عن المخاوف الطبية أو الأعراض أو المشاكل الصحية.";
+
+          setMessages((prev) => [
+            ...prev,
+            createBotMessage(nonMedicalResponse),
+          ]);
+          return false;
+        }
+        return true;
+      } catch (error) {
+        console.error("Intent validation failed:", error);
+        return true;
+      }
+    };
+
+    validateMedical().then((isMedical) => {
+      if (!isMedical) {
+        setInputText("");
+        setIsStreaming(false);
+        return;
+      }
+
+      switch (conversationStage) {
+        case CONVERSATION_STAGES.INITIAL:
+          generateInitialResponseMutation.mutate(inputText);
+          break;
+
+        case CONVERSATION_STAGES.SYMPTOM_CONFIRMATION:
+          { const hasAllRequiredInfo =
+            (hasProvidedAgeGender ||
+              (extractedInfo.age && extractedInfo.gender)) &&
+            (hasProvidedDuration || extractedInfo.duration);
+
+          if (hasAllRequiredInfo) {
+            if (
+              !hasProvidedAgeGender &&
+              extractedInfo.age &&
+              extractedInfo.gender
+            ) {
+              setHasProvidedAgeGender(true);
+              setUserDemographics((prev) => ({
+                ...prev,
+                age: extractedInfo.age,
+                gender: extractedInfo.gender,
+              }));
+              updateUserInfo({
+                age: extractedInfo.age,
+                gender: extractedInfo.gender,
+              });
+            }
+
+            if (!hasProvidedDuration && extractedInfo.duration) {
+              setHasProvidedDuration(true);
+              setUserDemographics((prev) => ({
+                ...prev,
+                duration: extractedInfo.duration,
+              }));
+              updateUserInfo({ duration: extractedInfo.duration });
+            }
+
+            setConversationStage(CONVERSATION_STAGES.DEEP_DIVE);
+            generateDeepDiveQuestions();
+          } else {
+            generateSymptomConfirmationMutation.mutate(inputText);
+          }
+          break; }
+
+        case CONVERSATION_STAGES.AGE_GENDER_COLLECTION:
+          if (showAgeGenderForm) {
+            setIsStreaming(false);
+            return;
+          }
+          if (hasProvidedAgeGender) {
+            if (hasProvidedDuration) {
+              setConversationStage(CONVERSATION_STAGES.DEEP_DIVE);
+              generateDeepDiveQuestions();
+            } else {
+              const durationQuestion = isEnglish
+                ? "Thank you. How long have you been experiencing these symptoms?"
+                : "شكرًا لك. منذ متى وأنت تعاني من هذه الأعراض؟";
+              addBotMessage(durationQuestion);
+              setConversationStage(CONVERSATION_STAGES.SYMPTOM_CONFIRMATION);
+              setIsStreaming(false);
+            }
+          } else {
+            setShowAgeGenderForm(true);
+            setIsStreaming(false);
+          }
+          break;
+
+        case CONVERSATION_STAGES.DEEP_DIVE:
+          { const hasAllInfo = userDemographics.age && userDemographics.gender;
+
+          if (hasAllInfo) {
+            generateFinalDiagnosisMutation.mutate(inputText);
+          } else {
+            const missingInfoResponse = isEnglish
+              ? "To provide you with the best medical advice, I need to know your age and biological sex. Could you please share this information?"
+              : "لتقديم أفضل نصيحة طبية لك، أحتاج إلى معرفة عمرك وجنسك البيولوجي. هل يمكنك مشاركة هذه المعلومات؟";
+
+            addBotMessage(missingInfoResponse);
+            setConversationStage(CONVERSATION_STAGES.AGE_GENDER_COLLECTION);
+            setShowAgeGenderForm(true);
+            setIsStreaming(false);
+          }
+          break; }
+
+        case CONVERSATION_STAGES.FINAL_DIAGNOSIS:
+          {
+            const resetResponse = isEnglish
+              ? "I've provided my assessment. Would you like to discuss another concern?"
+              : "لقد قدمت تقييمي. هل ترغب في مناقشة قلق آخر؟";
+            addBotMessage(resetResponse);
+            setIsStreaming(false);
+            setConversationStage(CONVERSATION_STAGES.INITIAL);
+            setHasProvidedAgeGender(false);
+            setHasProvidedDuration(false);
+            setCollectedSymptoms([]);
+          }
+          break;
+
+        default: {
+          const prompt = isEnglish
+            ? `The user says: "${inputText}". As a medical assistant, provide an appropriate medical response. Return only your response.`
+            : `يقول المستخدم: "${inputText}". كمساعد طبي، قدم ردًا طبيًا مناسبًا. أعد ردك فقط.`;
+
+          fetch(`${baseUrl}/completions`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "qwen/qwen2.5-vl-72b-instruct",
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "You are a helpful medical assistant. Return only your response.",
+                },
+                { role: "user", content: prompt },
+              ],
+              temperature: 0.3,
+              max_tokens: 150,
+            }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              let botResponse = data.choices[0].message.content;
+              botResponse = cleanAIResponse(botResponse);
+              addBotMessage(botResponse);
+              setIsStreaming(false);
+            })
+            .catch((error) => {
+              console.error("Response error:", error);
+              const fallbackResponse = isEnglish
+                ? "Thank you for sharing. Could you provide more details about your medical concern?"
+                : "شكرًا للمشاركة. هل يمكنك تقديم المزيد من التفاصيل حول قلقك الطبي؟";
+              addBotMessage(fallbackResponse);
+              setIsStreaming(false);
+            });
+        }
+      }
+    });
+
+    setInputText("");
+  }, [
+    inputText,
+    sessionLimitReached,
+    isStreaming,
+    isValidatingIntent,
+    conversationStage,
+    showAgeGenderForm,
+    hasProvidedAgeGender,
+    hasProvidedDuration,
+    isEnglish,
+    isArabic,
+    addUserMessage,
+    addBotMessage,
+    extractUserInfoFromMessage,
+    validateMedicalQuestion,
+    generateInitialResponseMutation,
+    generateSymptomConfirmationMutation,
+    generateDeepDiveQuestions,
+    generateFinalDiagnosisMutation,
+    createBotMessage,
+    userDemographics,
+    updateUserInfo,
+  ]);
 
   const startNewConversation = useCallback(() => {
-    setMessages([]); setInputText(""); resetSession(); setConversationStage(1); setApiError(null); setLastCondition(""); setIsStreaming(false);
+    setMessages([]);
+    setInputText("");
+    resetSession();
+    setConversationStage(CONVERSATION_STAGES.INITIAL);
+    setShowAgeGenderForm(false);
+    setUserDemographics({ age: "", gender: "", duration: "" });
+    setHasProvidedAgeGender(false);
+    setHasProvidedDuration(false);
+    setCollectedSymptoms([]);
+    setApiError(null);
+    setIsStreaming(false);
+    setIsValidatingIntent(false);
   }, [resetSession]);
 
   const handleKeyDown = useCallback(
     (event) => {
-      if (event.key === "Enter" && !event.shiftKey && !sessionLimitReached) {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey &&
+        !sessionLimitReached &&
+        !isStreaming &&
+        !isValidatingIntent
+      ) {
         event.preventDefault();
         handleSendMessage();
       }
     },
-    [handleSendMessage, sessionLimitReached]
+    [handleSendMessage, sessionLimitReached, isStreaming, isValidatingIntent]
   );
 
   const autoResizeTextarea = useCallback((textareaRef) => {
@@ -427,8 +794,22 @@ const useMedicalAssistant = () => {
   }, []);
 
   return {
-    messages, inputText, setInputText, isProcessing, handleSendMessage, handleKeyDown, autoResizeTextarea, startNewConversation, userInfo: userInfo || {}, apiError, isStreaming,
+    messages,
+    inputText,
+    setInputText,
+    isProcessing: isStreaming || isValidatingIntent,
+    handleSendMessage,
+    handleKeyDown,
+    autoResizeTextarea,
+    startNewConversation,
+    userInfo: userInfo || {},
+    apiError,
+    isStreaming,
+    conversationStage,
+    showAgeGenderForm,
+    handleAgeGenderSubmit,
+    userDemographics,
   };
 };
 
-export { useMedicalAssistant };
+export { CONVERSATION_STAGES, useMedicalAssistant };

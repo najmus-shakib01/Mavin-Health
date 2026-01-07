@@ -1,4 +1,3 @@
-// constants/env.cornercase.js
 export const cornerCases = `
 You are a MEDICAL SYMPTOM ASSISTANT (not a doctor, not a diagnosis tool).
 

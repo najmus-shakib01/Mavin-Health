@@ -1,6 +1,9 @@
 import { createBrowserRouter } from "react-router-dom";
 import MedicalAssistant from "../features/MedicalAssistant/MedicalAssistant";
+import TermsOfService from "../pages/TermsOfService";
+import PrivacyPolicy from "../pages/PrivacyPolicy";
 import Main from "../layouts/Main";
+import MedicalAssistantLayout from "../layouts/MedicalAssistantLayout";
 
 const Routes = createBrowserRouter([
   {
@@ -9,8 +12,22 @@ const Routes = createBrowserRouter([
     children: [
       {
         path: "/",
-        element: <MedicalAssistant />,
-      }
+        element: <MedicalAssistantLayout />,
+        children: [
+          {
+            index: true,
+            element: <MedicalAssistant />,
+          },
+        ],
+      },
+      {
+        path: "/terms-of-service",
+        element: <TermsOfService />,
+      },
+      {
+        path: "/privacy-policy",
+        element: <PrivacyPolicy />,
+      },
     ],
   },
 ]);

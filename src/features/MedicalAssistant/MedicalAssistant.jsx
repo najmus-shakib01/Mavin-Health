@@ -23,6 +23,9 @@ const MedicalAssistantContent = () => {
     startNewConversation,
     userInfo,
     isStreaming,
+    conversationStage,
+    showAgeGenderForm,
+    handleAgeGenderSubmit,
   } = useMedicalAssistant();
 
   const { messageCount } = useSession();
@@ -35,7 +38,7 @@ const MedicalAssistantContent = () => {
   return (
     <div className="bg-gray-50 dark:bg-gray-900">
       <PageTitle title="MedAI Agent Medical" />
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-2">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white shadow-2xl rounded-2xl overflow-hidden dark:bg-gray-900">
             <Header />
@@ -53,6 +56,9 @@ const MedicalAssistantContent = () => {
                 userInfo={userInfo}
                 messageCount={messageCount}
                 isStreaming={isStreaming}
+                conversationStage={conversationStage}
+                showAgeGenderForm={showAgeGenderForm}
+                handleAgeGenderSubmit={handleAgeGenderSubmit}
               />
             </div>
           </div>

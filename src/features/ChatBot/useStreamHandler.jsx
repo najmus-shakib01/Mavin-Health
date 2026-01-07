@@ -1,6 +1,6 @@
 import { marked } from "marked";
-import { formatResponseWithSources } from "../../utils/sourceExtractor";
 import sanitizeHtml from "../../utils/sanitizeHtml";
+import { extractCTAFromResponse, extractSourcesFromResponse, extractSpecialistFromResponse, formatResponseWithSources } from "../../utils/sourceExtractor";
 
 export const useStreamHandler = (setMessages, isArabic, options = {}) => {
   const { onStreamStart, onStreamEnd } = options;
@@ -65,7 +65,6 @@ export const useStreamHandler = (setMessages, isArabic, options = {}) => {
         // ignore
       }
 
-      // Ensure last streaming bubble is marked completed
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (last?.sender === "bot" && last.isStreaming) {
@@ -74,7 +73,7 @@ export const useStreamHandler = (setMessages, isArabic, options = {}) => {
         return prev;
       });
 
-      onStreamEnd?.();
+      onStreamEnd?.(); 
     }
   };
 
@@ -87,7 +86,8 @@ const buildSafeHtml = (rawText, isArabic) => {
 };
 
 const cryptoSafeId = () => {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && crypto.randomUUID)
+    return crypto.randomUUID();
   return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 };
 
@@ -105,7 +105,10 @@ const updateStreamingMessage = (setMessages, fullResponse, isArabic) => {
     const safeHtml = buildSafeHtml(fullResponse, isArabic);
 
     if (last?.sender === "bot" && last.isStreaming) {
-      return [...prev.slice(0, -1), { ...last, text: safeHtml, isStreaming: true }];
+      return [
+        ...prev.slice(0, -1),
+        { ...last, text: safeHtml, isStreaming: true },
+      ];
     }
 
     return [
@@ -122,15 +125,54 @@ const updateStreamingMessage = (setMessages, fullResponse, isArabic) => {
 };
 
 const finalizeMessage = (setMessages, fullResponse, isArabic) => {
-  let safeHtml = buildSafeHtml(fullResponse, isArabic);
+  const sources = extractSourcesFromResponse(fullResponse);
+  const specialist = extractSpecialistFromResponse(fullResponse);
+  const cta = extractCTAFromResponse(fullResponse);
+  
+  let cleanText = fullResponse
+    .replace(/MEDICAL_SOURCE:\s*[^\n]+/gi, "")
+    .replace(/SPECIALIST_RECOMMENDATION:\s*[^\n]+/i, "")
+    .replace(/CTA:\s*[^\n]+/i, "")
+    .trim();
+  
+  let html = marked.parse(cleanText);
+  
+  if (specialist) {
+    const specialistHeader = isArabic ? "👨‍⚕️ الأخصائي الموصى به:" : "👨‍⚕️ Recommended Specialist:";
+    html += `<div class="mt-4 bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+      <strong class="text-green-800 dark:text-green-300 text-sm">${specialistHeader}</strong>
+      <p class="text-green-700 dark:text-green-400 text-sm mt-1">${specialist}</p>
+    </div>`;
+  }
+  
+  if (cta) {
+    const ctaHeader = isArabic ? "📋 الخطوات التالية الموصى بها:" : "📋 Recommended Next Steps:";
+    html += `<div class="mt-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+      <strong class="text-purple-800 dark:text-purple-300 text-sm">${ctaHeader}</strong>
+      <p class="text-purple-700 dark:text-purple-400 text-sm mt-1">${cta}</p>
+    </div>`;
+  }
+  
+  if (sources.length > 0) {
+    const sourcesHeader = isArabic ? "📚 المراجع الطبية:" : "📚 Medical References:";
+    const sourcesHtml = sources.map(source => 
+      `<a href="${source.url}" target="_blank" rel="noopener noreferrer" 
+         class="${source.isSearch ? 'text-orange-600' : 'text-blue-600'} hover:underline">
+        • ${source.name}${source.isSearch ? ' (Search Medical Information)' : ''}
+      </a>`
+    ).join('<br>');
+    
+    html += `<div class="mt-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+      <strong class="text-blue-800 dark:text-blue-300 text-sm">${sourcesHeader}</strong>
+      <div class="mt-2 space-y-1 text-sm">${sourcesHtml}</div>
+    </div>`;
+  }
 
-  // Back-compat cleanup (typo variants)
-  safeHtml = safeHtml.replace(/SPECIALTY_RECOMMENDATION\s*:\s*\[.*?\]/gi, "");
-  safeHtml = safeHtml.replace(/SPECIALIST_RECOMMENDATION\s*:\s*[^\n<]+/gi, "");
-
+  const safeHtml = sanitizeHtml(html);
+  
   setMessages((prev) => {
     const last = prev[prev.length - 1];
-
+    
     if (last?.sender === "bot" && last.isStreaming) {
       return [
         ...prev.slice(0, -1),
@@ -142,7 +184,7 @@ const finalizeMessage = (setMessages, fullResponse, isArabic) => {
         },
       ];
     }
-
+    
     return prev;
   });
 };
@@ -151,8 +193,12 @@ const handleStreamError = (setMessages, error, isArabic) => {
   console.error("Stream processing error:", error);
 
   const msg = isArabic
-    ? `<span style="color: red">خطأ في معالجة الاستجابة: ${escapeHtml(error?.message || "Unknown error")}</span>`
-    : `<span style="color: red">Stream Error: ${escapeHtml(error?.message || "Unknown error")}</span>`;
+    ? `<span style="color: red">خطأ في معالجة الاستجابة: ${escapeHtml(
+        error?.message || "Unknown error"
+      )}</span>`
+    : `<span style="color: red">Stream Error: ${escapeHtml(
+        error?.message || "Unknown error"
+      )}</span>`;
 
   setMessages((prev) => [
     ...prev.filter((m) => !m.isStreaming),

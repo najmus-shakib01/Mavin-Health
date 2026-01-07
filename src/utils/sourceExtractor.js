@@ -51,7 +51,6 @@ export const validateUrl = (url) => {
   try {
     const urlObj = new URL(url);
     const isTrusted = trustedMedicalDomains.some((domain) => urlObj.hostname.includes(domain));
-    // ✅ HTTPS-only (matches your cornerCases requirement)
     return isTrusted && urlObj.protocol === "https:";
   } catch {
     return false;
@@ -132,21 +131,38 @@ export const extractSpecialistFromResponse = (response) => {
   return specialistMatch?.[1]?.trim() || null;
 };
 
+export const extractCTAFromResponse = (response) => {
+  if (!response) return null;
+  
+  const ctaMatch = response?.match(/CTA:\s*([^\n]+)/i);
+  if (ctaMatch) return ctaMatch[1]?.trim();
+  
+  const condition = extractMedicalCondition(response);
+  if (condition) {
+    return `Based on your ${condition} symptoms, I recommend tracking your symptoms daily and scheduling a follow-up with the recommended specialist.`;
+  }
+  
+  return "Based on your symptoms, I recommend tracking your health metrics and scheduling a follow-up consultation.";
+};
+
 export const formatResponseWithSources = (response, isArabic = false) => {
   if (!response) return "";
 
   const sources = extractSourcesFromResponse(response);
   const specialist = extractSpecialistFromResponse(response);
+  const cta = extractCTAFromResponse(response);
 
   let cleanResponse = response
     .replace(/MEDICAL_SOURCE:\s*[^\n]+/gi, "")
     .replace(/SPECIALIST_RECOMMENDATION:\s*[^\n]+/i, "")
+    .replace(/CTA:\s*[^\n]+/i, "")
     .trim();
 
   const sourcesSection = generateSourcesSection(sources, isArabic);
   const specialistSection = generateSpecialistSection(specialist, isArabic);
+  const ctaSection = generateCTASection(cta, isArabic);
 
-  return `${cleanResponse}${specialistSection}${sourcesSection}`;
+  return `${cleanResponse}${specialistSection}${ctaSection}${sourcesSection}`;
 };
 
 const generateSourcesSection = (sources, isArabic) => {
@@ -192,12 +208,24 @@ const generateSpecialistSection = (specialist, isArabic) => {
     </div>`;
 };
 
+const generateCTASection = (cta, isArabic) => {
+  if (!cta) return "";
+
+  const ctaHeader = isArabic ? "📋 الخطوات التالية الموصى بها:" : "📋 Recommended Next Steps:";
+
+  return `
+    <div class="mt-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+      <strong class="text-purple-800 dark:text-purple-300 text-sm">${ctaHeader}</strong>
+      <p class="text-purple-700 dark:text-purple-400 text-sm mt-1">${cta}</p>
+    </div>`;
+};
+
 export const cleanAIResponse = (response) => {
   if (!response) return "";
 
   const disclaimerPatterns = [
-    /⚠️ This AI system may not always be accurate\. Do not take its responses as professional medical advice\./gi,
-    /⚠️ هذا النظام الذكي قد لا يكون دقيقًا دائمًا\. لا تعتمد على ردوده كاستشارة طبية مهنية\./gi,
+    /⚠️ This AI system may not always be accurate\. Do not take its responses as professional medical advice\. Always consult a licensed healthcare professional\./gi,
+    /⚠️ هذا النظام الذكي قد لا يكون دقيقًا دائمًا\. لا تعتمد على ردوده كاستشارة طبية مهنية\. استشر دائمًا أخصائي رعاية صحية مرخّصًا\./gi,
   ];
 
   return disclaimerPatterns.reduce((acc, pattern) => acc.replace(pattern, ""), response).trim();

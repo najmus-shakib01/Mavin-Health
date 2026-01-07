@@ -8,19 +8,36 @@ body {
   cursor: pointer;
 }
 
-html, body {
-  overflow: hidden;
-  height: 100%;
+.scroll-smooth {
+  scroll-behavior: smooth;
 }
 
-@media (max-width: 768px) {
-  html, body {
-    overflow: auto;
-    height: auto;
-  }
+::-webkit-scrollbar {
+  width: 6px;
+}
 
-  .medical-assistant-page {
-    overflow: auto;
-    height: 100vh;
-  }
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #374151;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #6b7280;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
